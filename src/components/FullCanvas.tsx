@@ -1,288 +1,286 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import * as THREE from "three";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-
-const ChromaShader = {
-  uniforms: { tDiffuse: { value: null }, amount: { value: 0.002 } },
-  vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-  fragmentShader: `uniform sampler2D tDiffuse;uniform float amount;varying vec2 vUv;void main(){vec2 o=amount*(vUv-.5);gl_FragColor=vec4(texture2D(tDiffuse,vUv+o).r,texture2D(tDiffuse,vUv).g,texture2D(tDiffuse,vUv-o).b,1.);}`,
-};
-
-// ─── CUSTOM MORUS TOPOLOGY (twisted torus variant) ───
-function createMorus(p: number, q: number, R: number, r: number, seg: number) {
-  const geo = new THREE.BufferGeometry();
-  const v: number[] = [];
-  const idx: number[] = [];
-  for (let i = 0; i <= seg; i++) {
-    const u = (i / seg) * Math.PI * 2;
-    for (let j = 0; j <= seg; j++) {
-      const t = (j / seg) * Math.PI * 2;
-      v.push(
-        (R + r * Math.cos(q * t)) * Math.cos(p * u),
-        (R + r * Math.cos(q * t)) * Math.sin(p * u),
-        r * Math.sin(q * t)
-      );
-    }
-  }
-  for (let i = 0; i < seg; i++) {
-    for (let j = 0; j < seg; j++) {
-      const a = i * (seg + 1) + j;
-      const b = a + seg + 1;
-      idx.push(a, b, a + 1, b, b + 1, a + 1);
-    }
-  }
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  return geo;
-}
+import { useEffect, useRef } from 'react';
 
 export default function FullCanvas() {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mouseRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 });
+  const scrollRef = useRef({ y: 0, targetY: 0 });
   const frameRef = useRef<number>(0);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0a0a0f, 0.005);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
-    camera.position.set(0, 0, 28);
+    // High-DPR support
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.8;
-    container.appendChild(renderer.domElement);
-
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.3, 0.6, 0.5);
-    composer.addPass(bloom);
-    const chroma = new ShaderPass(ChromaShader);
-    composer.addPass(chroma);
-
-    // ─── MAIN: MORUS TOPOLOGY (twisted torus — completely unique shape) ───
-    const morusGeo = createMorus(2, 3, 2.0, 0.7, 100);
-    const morusMat = new THREE.MeshPhysicalMaterial({
-      color: "#14d9c4", metalness: 0.0, roughness: 0.0,
-      transmission: 0.92, thickness: 3.0, clearcoat: 1.0,
-      clearcoatRoughness: 0.0, ior: 2.5, transparent: true,
-      opacity: 0.85, emissive: "#14d9c4", emissiveIntensity: 0.3,
-      side: THREE.DoubleSide,
-    });
-    const morusMesh = new THREE.Mesh(morusGeo, morusMat);
-    scene.add(morusMesh);
-
-    // Wireframe shell
-    const morusWireGeo = createMorus(2, 3, 2.4, 0.85, 50);
-    const morusWireMat = new THREE.MeshBasicMaterial({ color: "#14d9c4", wireframe: true, transparent: true, opacity: 0.03 });
-    const morusWire = new THREE.Mesh(morusWireGeo, morusWireMat);
-    scene.add(morusWire);
-
-    // Inner core
-    const coreGeo = new THREE.IcosahedronGeometry(0.6, 3);
-    const coreMat = new THREE.MeshBasicMaterial({ color: "#14d9c4", transparent: true, opacity: 0.3 });
-    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    scene.add(coreMesh);
-
-    // ─── 2 ORBITERS ───
-    const orb1Geo = new THREE.OctahedronGeometry(0.7, 0);
-    const orb1Mat = new THREE.MeshPhysicalMaterial({
-      color: "#a855f7", metalness: 0.0, roughness: 0.0,
-      transmission: 0.9, thickness: 1.0, clearcoat: 1.0,
-      transparent: true, opacity: 0.8, emissive: "#a855f7", emissiveIntensity: 0.2,
-      side: THREE.DoubleSide,
-    });
-    const orb1 = new THREE.Mesh(orb1Geo, orb1Mat);
-    scene.add(orb1);
-
-    const orb2Geo = new THREE.DodecahedronGeometry(0.55, 0);
-    const orb2Mat = new THREE.MeshPhysicalMaterial({
-      color: "#f59e0b", metalness: 0.0, roughness: 0.0,
-      transmission: 0.9, thickness: 1.0, clearcoat: 1.0,
-      transparent: true, opacity: 0.8, emissive: "#f59e0b", emissiveIntensity: 0.2,
-      side: THREE.DoubleSide,
-    });
-    const orb2 = new THREE.Mesh(orb2Geo, orb2Mat);
-    scene.add(orb2);
-
-    // ─── 2 RINGS ───
-    const ring1Geo = new THREE.TorusGeometry(6, 0.01, 16, 250);
-    const ring1Mat = new THREE.MeshBasicMaterial({ color: "#14d9c4", transparent: true, opacity: 0.12, depthWrite: false });
-    const ring1 = new THREE.Mesh(ring1Geo, ring1Mat);
-    scene.add(ring1);
-
-    const ring2Geo = new THREE.TorusGeometry(7.5, 0.007, 16, 250);
-    const ring2Mat = new THREE.MeshBasicMaterial({ color: "#a855f7", transparent: true, opacity: 0.08, depthWrite: false });
-    const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
-    scene.add(ring2);
-
-    // ─── PARTICLES ───
-    const isMobile = window.innerWidth < 768;
-    const pCount = isMobile ? 300 : 600;
-    const pPos = new Float32Array(pCount * 3);
-    const pCol = new Float32Array(pCount * 3);
-    const palette = [new THREE.Color("#14d9c4"), new THREE.Color("#a855f7"), new THREE.Color("#f59e0b"), new THREE.Color("#06b6d4")];
-
-    for (let i = 0; i < pCount; i++) {
-      const i3 = i * 3;
-      const angle = Math.random() * Math.PI * 2;
-      const r = 6 + Math.random() * 25;
-      pPos[i3] = Math.cos(angle) * r;
-      pPos[i3 + 1] = (Math.random() - 0.5) * r * 0.4;
-      pPos[i3 + 2] = Math.sin(angle) * r - 5;
-      const c = palette[Math.floor(Math.random() * palette.length)];
-      pCol[i3] = c.r; pCol[i3 + 1] = c.g; pCol[i3 + 2] = c.b;
-    }
-
-    const pGeo = new THREE.BufferGeometry();
-    pGeo.setAttribute("position", new THREE.Float32BufferAttribute(pPos, 3));
-    pGeo.setAttribute("color", new THREE.Float32BufferAttribute(pCol, 3));
-    const pMat = new THREE.PointsMaterial({
-      size: 0.05, vertexColors: true, transparent: true, opacity: 0.35,
-      blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
-    });
-    const particles = new THREE.Points(pGeo, pMat);
-    scene.add(particles);
-
-    // ─── SCROLL + MOUSE ───
-    let scroll = 0;
-    let scrollTarget = 0;
-    const onScroll = () => {
-      const total = document.documentElement.scrollHeight - window.innerHeight;
-      scrollTarget = total > 0 ? window.scrollY / total : 0;
+    const resize = () => {
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.scale(dpr, dpr);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    resize();
+    window.addEventListener('resize', resize);
 
-    const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+    // Mouse tracking
     const onMouseMove = (e: MouseEvent) => {
-      mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.ty = -(e.clientY / window.innerHeight) * 2 + 1;
+      mouseRef.current.targetX = (e.clientX / window.innerWidth - 0.5) * 2;
+      mouseRef.current.targetY = (e.clientY / window.innerHeight - 0.5) * 2;
     };
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener('mousemove', onMouseMove);
 
-    const onResize = () => {
-      const w = window.innerWidth, h = window.innerHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-      composer.setSize(w, h);
+    // Scroll tracking
+    const onScroll = () => {
+      scrollRef.current.targetY = window.scrollY;
     };
-    window.addEventListener("resize", onResize);
+    window.addEventListener('scroll', onScroll, { passive: true });
 
-    const clock = new THREE.Clock();
+    let time = 0;
 
-    function animate() {
-      frameRef.current = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
+    const animate = () => {
+      time += 0.005;
 
-      scroll += (scrollTarget - scroll) * 0.05;
-      mouse.x += (mouse.tx - mouse.x) * 0.04;
-      mouse.y += (mouse.ty - mouse.y) * 0.04;
+      // Smooth interpolation
+      mouseRef.current.x += (mouseRef.current.targetX - mouseRef.current.x) * 0.03;
+      mouseRef.current.y += (mouseRef.current.targetY - mouseRef.current.y) * 0.03;
+      scrollRef.current.y += (scrollRef.current.targetY - scrollRef.current.y) * 0.05;
 
-      // Camera
-      camera.position.x = mouse.x * 5;
-      camera.position.y = mouse.y * 3.5 - scroll * 10;
-      camera.position.z = 28 - scroll * 12;
-      camera.lookAt(0, -scroll * 10, 0);
-      chroma.uniforms.amount.value = 0.0015 + scroll * 0.005;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
 
-      // Main morus
-      const rotSpeed = 0.12 + scroll * 0.2;
-      morusMesh.rotation.x = t * rotSpeed + scroll * 2;
-      morusMesh.rotation.y = t * (rotSpeed + 0.08) + scroll * 1.5;
-      morusMesh.rotation.z = t * 0.05;
-      const targetScale = 1.0 - scroll * 0.5;
-      morusMesh.scale.setScalar(THREE.MathUtils.lerp(morusMesh.scale.x, targetScale, 0.06));
-      morusMesh.position.x = mouse.x * 3.5;
-      morusMesh.position.y = mouse.y * 2.5 - scroll * 8;
-      morusMesh.position.z = -scroll * 3;
-      morusMat.emissiveIntensity = 0.25 + Math.sin(t * 2) * 0.15 + scroll * 0.25;
+      ctx.clearRect(0, 0, w, h);
 
-      // Wire
-      morusWire.rotation.x = -t * (rotSpeed * 0.5);
-      morusWire.rotation.y = t * (rotSpeed * 0.7);
-      morusWire.scale.setScalar(THREE.MathUtils.lerp(morusWire.scale.x, targetScale * 1.15, 0.06));
-      morusWire.position.copy(morusMesh.position);
+      // Everswap-style deep blue-to-green gradient sky
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+      skyGrad.addColorStop(0, '#0a1628');
+      skyGrad.addColorStop(0.3, '#0d1f3c');
+      skyGrad.addColorStop(0.6, '#0f2a4a');
+      skyGrad.addColorStop(0.85, '#1a3a2a');
+      skyGrad.addColorStop(1, '#0a1a0f');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
 
-      // Core
-      const corePulse = 1 + Math.sin(t * 3) * 0.2;
-      coreMesh.scale.setScalar(corePulse * targetScale * 0.7);
-      coreMesh.position.copy(morusMesh.position);
-      coreMat.opacity = 0.2 + Math.sin(t * 2) * 0.15;
+      // Scroll-based parallax offset
+      const scrollOffset = scrollRef.current.y * 0.3;
+      const mouseOffsetX = mouseRef.current.x * 15;
+      const mouseOffsetY = mouseRef.current.y * 10;
 
-      // Orbiters
-      const orbAngle1 = t * 0.35;
-      orb1.position.x = Math.cos(orbAngle1) * 6 + mouse.x * 2.5;
-      orb1.position.y = Math.sin(orbAngle1 * 0.7) * 4 + mouse.y * 1.8 - scroll * 6;
-      orb1.position.z = Math.sin(orbAngle1) * 3 - scroll * 4;
-      orb1.rotation.x = t * 0.4;
-      orb1.rotation.y = t * 0.3;
-      orb1.scale.setScalar(THREE.MathUtils.lerp(1, 0.4, scroll));
-      orb1Mat.opacity = 0.8 * (1 - scroll * 0.6);
+      // ─── ATMOSPHERIC HAZE (bottom) ───
+      const hazeGrad = ctx.createLinearGradient(0, h * 0.6, 0, h);
+      hazeGrad.addColorStop(0, 'rgba(20, 50, 40, 0)');
+      hazeGrad.addColorStop(0.5, 'rgba(30, 60, 50, 0.15)');
+      hazeGrad.addColorStop(1, 'rgba(40, 80, 60, 0.3)');
+      ctx.fillStyle = hazeGrad;
+      ctx.fillRect(0, h * 0.6, w, h * 0.4);
 
-      const orbAngle2 = t * -0.25 + Math.PI;
-      orb2.position.x = Math.cos(orbAngle2) * 5.5 + mouse.x * 2;
-      orb2.position.y = Math.sin(orbAngle2 * 0.6) * 3.5 + mouse.y * 1.5 - scroll * 5.5;
-      orb2.position.z = Math.sin(orbAngle2) * 3.5 - scroll * 3.5;
-      orb2.rotation.x = t * 0.35;
-      orb2.rotation.y = t * 0.25;
-      orb2.scale.setScalar(THREE.MathUtils.lerp(1, 0.4, scroll));
-      orb2Mat.opacity = 0.8 * (1 - scroll * 0.6);
+      // ─── MOUNTAIN LAYERS (back to front) ───
+      drawMountainLayer(ctx, w, h, {
+        baseY: h * 0.55 - scrollOffset * 0.2,
+        peakHeight: h * 0.18,
+        color1: '#0d2a1a',
+        color2: '#1a4a2a',
+        highlightColor: 'rgba(100, 200, 120, 0.08)',
+        segments: 8,
+        offsetX: mouseOffsetX * 0.3,
+        time: time * 0.2,
+        blur: 4,
+      });
 
-      // Rings
-      ring1.rotation.x = t * 0.18;
-      ring1.rotation.y = t * 0.12;
-      ring1.position.copy(morusMesh.position);
-      ring1.scale.setScalar(THREE.MathUtils.lerp(1, 2.2, scroll));
+      drawMountainLayer(ctx, w, h, {
+        baseY: h * 0.6 - scrollOffset * 0.3,
+        peakHeight: h * 0.22,
+        color1: '#0f3020',
+        color2: '#1a5a30',
+        highlightColor: 'rgba(120, 220, 140, 0.12)',
+        segments: 6,
+        offsetX: mouseOffsetX * 0.5,
+        time: time * 0.3,
+        blur: 2,
+      });
 
-      ring2.rotation.x = -t * 0.12;
-      ring2.rotation.z = t * 0.08;
-      ring2.position.copy(morusMesh.position);
-      ring2.scale.setScalar(THREE.MathUtils.lerp(1, 2.2, scroll));
+      // Main mountain (sharp, in focus)
+      drawMountainLayer(ctx, w, h, {
+        baseY: h * 0.65 - scrollOffset * 0.4,
+        peakHeight: h * 0.35,
+        color1: '#1a4a2a',
+        color2: '#2a6a3a',
+        highlightColor: 'rgba(160, 255, 160, 0.2)',
+        segments: 5,
+        offsetX: mouseOffsetX * 0.8,
+        time: time * 0.4,
+        blur: 0,
+        isMain: true,
+      });
 
-      // Particles
-      const pArr = pGeo.attributes.position.array as Float32Array;
-      for (let i = 0; i < pCount; i++) {
-        const i3 = i * 3;
-        pArr[i3] += Math.sin(t * 0.4 + i * 0.008) * 0.003;
-        pArr[i3 + 1] += Math.cos(t * 0.25 + i * 0.008) * 0.002;
-        pArr[i3 + 2] += 0.001;
-        const d = Math.sqrt(pArr[i3] ** 2 + pArr[i3 + 1] ** 2 + (pArr[i3 + 2] + 5) ** 2);
-        if (d > 30) {
-          const a = Math.random() * Math.PI * 2;
-          pArr[i3] = Math.cos(a) * 4;
-          pArr[i3 + 1] = (Math.random() - 0.5) * 4;
-          pArr[i3 + 2] = Math.sin(a) * 4 - 5;
-        }
+      // Front mountain (darker, closer)
+      drawMountainLayer(ctx, w, h, {
+        baseY: h * 0.72 - scrollOffset * 0.5,
+        peakHeight: h * 0.15,
+        color1: '#0a2015',
+        color2: '#153a25',
+        highlightColor: 'rgba(80, 180, 100, 0.08)',
+        segments: 10,
+        offsetX: mouseOffsetX * 1.0,
+        time: time * 0.5,
+        blur: 3,
+      });
+
+      // Closest foreground (darkest silhouette)
+      drawMountainLayer(ctx, w, h, {
+        baseY: h * 0.82 - scrollOffset * 0.6,
+        peakHeight: h * 0.08,
+        color1: '#050f0a',
+        color2: '#0a1a10',
+        highlightColor: 'rgba(50, 100, 60, 0.05)',
+        segments: 12,
+        offsetX: mouseOffsetX * 1.2,
+        time: time * 0.6,
+        blur: 0,
+      });
+
+      // ─── FLOATING PARTICLES (atmospheric) ───
+      for (let i = 0; i < 40; i++) {
+        const seed = i * 97.3;
+        const px = (Math.sin(seed + time * 0.3) * 0.5 + 0.5) * w + mouseOffsetX * 0.5;
+        const py = (Math.cos(seed * 0.7 + time * 0.2) * 0.5 + 0.5) * h * 0.7 - scrollOffset * 0.3;
+        const size = 0.5 + Math.sin(seed * 0.1) * 0.3;
+        const alpha = 0.1 + Math.sin(time + seed) * 0.05;
+
+        ctx.beginPath();
+        ctx.arc(px, py, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(180, 220, 200, ${alpha})`;
+        ctx.fill();
       }
-      pGeo.attributes.position.needsUpdate = true;
-      particles.rotation.y = t * (0.004 + scroll * 0.01);
 
-      composer.render();
-    }
-    animate();
+      // ─── SUBTLE GLOW (center horizon) ───
+      const glowGrad = ctx.createRadialGradient(
+        w / 2 + mouseOffsetX, h * 0.5 - scrollOffset * 0.3, 0,
+        w / 2 + mouseOffsetX, h * 0.5 - scrollOffset * 0.3, w * 0.4
+      );
+      glowGrad.addColorStop(0, 'rgba(40, 120, 80, 0.08)');
+      glowGrad.addColorStop(0.5, 'rgba(30, 80, 60, 0.04)');
+      glowGrad.addColorStop(1, 'rgba(20, 40, 30, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      frameRef.current = requestAnimationFrame(animate);
+    };
+
+    frameRef.current = requestAnimationFrame(animate);
 
     return () => {
       cancelAnimationFrame(frameRef.current);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
-      renderer.domElement.remove();
-      composer.dispose();
-      renderer.dispose();
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('scroll', onScroll);
     };
   }, []);
 
-  return <div ref={containerRef} id="canvas-bg" aria-hidden="true" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 w-full h-full pointer-events-none"
+      style={{ zIndex: 0 }}
+    />
+  );
+}
+
+// ─── MOUNTAIN LAYER DRAWING ───
+interface MountainLayerOptions {
+  baseY: number;
+  peakHeight: number;
+  color1: string;
+  color2: string;
+  highlightColor: string;
+  segments: number;
+  offsetX: number;
+  time: number;
+  blur: number;
+  isMain?: boolean;
+}
+
+function drawMountainLayer(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  opts: MountainLayerOptions
+) {
+  const { baseY, peakHeight, color1, color2, highlightColor, segments, offsetX, time, blur, isMain } = opts;
+
+  // Save context for blur
+  if (blur > 0) {
+    ctx.save();
+    ctx.filter = `blur(${blur}px)`;
+  }
+
+  // Generate mountain peaks using simplex-like noise
+  const points: { x: number; y: number }[] = [];
+  const segmentWidth = w / segments;
+
+  for (let i = 0; i <= segments + 2; i++) {
+    const x = (i - 1) * segmentWidth + offsetX;
+    // Multi-octave noise for organic look
+    const n1 = Math.sin(i * 1.2 + time) * 0.4;
+    const n2 = Math.sin(i * 2.7 + time * 1.3) * 0.25;
+    const n3 = Math.sin(i * 4.1 + time * 0.7) * 0.15;
+    const noise = n1 + n2 + n3;
+
+    // Center peak is tallest
+    const centerFactor = 1 - Math.abs(i - segments / 2) / (segments / 2);
+    const heightMult = 0.3 + centerFactor * 0.7;
+
+    const y = baseY - peakHeight * noise * heightMult;
+    points.push({ x, y });
+  }
+
+  // Draw mountain shape
+  ctx.beginPath();
+  ctx.moveTo(-10, h + 10);
+  ctx.lineTo(points[0].x, points[0].y);
+
+  // Smooth curves between peaks
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const cpX = (prev.x + curr.x) / 2;
+    ctx.quadraticCurveTo(prev.x + (curr.x - prev.x) * 0.6, prev.y, cpX, (prev.y + curr.y) / 2);
+    ctx.quadraticCurveTo(curr.x - (curr.x - prev.x) * 0.4, curr.y, curr.x, curr.y);
+  }
+
+  ctx.lineTo(w + 10, h + 10);
+  ctx.closePath();
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, baseY - peakHeight, 0, baseY + 50);
+  grad.addColorStop(0, color2);
+  grad.addColorStop(0.4, color1);
+  grad.addColorStop(1, color1);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Highlight on peaks (top edges)
+  if (isMain) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const cpX = (prev.x + curr.x) / 2;
+      ctx.quadraticCurveTo(prev.x + (curr.x - prev.x) * 0.6, prev.y, cpX, (prev.y + curr.y) / 2);
+      ctx.quadraticCurveTo(curr.x - (curr.x - prev.x) * 0.4, curr.y, curr.x, curr.y);
+    }
+    ctx.strokeStyle = highlightColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  if (blur > 0) {
+    ctx.restore();
+  }
 }
