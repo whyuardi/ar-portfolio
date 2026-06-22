@@ -86,7 +86,7 @@ export default function Hero() {
               <div className="flex gap-8 mt-12 pt-8 border-t border-border">
                 {[
                   { n: "2026", l: "Graduate" },
-                  { n: "5", l: "Projects" },
+                  { n: "6", l: "Projects" },
                   { n: "500+", l: "Connections" },
                 ].map((s) => (
                   <div key={s.l}>

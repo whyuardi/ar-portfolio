@@ -49,6 +49,16 @@ const projects = [
     github: "https://github.com/whyuardi/orion-dashboard",
     span: "lg:col-span-1 lg:row-span-1",
   },
+  {
+    title: "MEV Arena",
+    role: "Full-stack Developer",
+    desc: "Gamified MEV bot competition platform where users deploy bots (Sandwich, Arbitrage, Liquidation) to compete in 30-second rounds for block rewards. Interactive 3D mempool visualization, customizable strategies, live leaderboard, and on-chain reward distribution via Solidity smart contract.",
+    techs: ["Next.js", "TypeScript", "Three.js", "Solidity", "Hardhat", "Recharts"],
+    tags: ["Web3", "DeFi", "Gaming", "MEV", "Smart Contract"],
+    github: "https://github.com/whyuardi/mev-bot-arena",
+    live: "https://mev-bot-arena.vercel.app",
+    span: "lg:col-span-2 lg:row-span-1",
+  },
 ];
 
 export default function Projects() {
