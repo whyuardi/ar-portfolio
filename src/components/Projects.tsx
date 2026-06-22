@@ -1,4 +1,10 @@
 "use client";
+import dynamic from "next/dynamic";
+
+const Scene = dynamic(() => import("./SectionScenes").then((m) => ({ default: m.ProjectsScene })), {
+  ssr: false,
+  loading: () => null,
+});
 
 import { ArrowSquareOut, GithubLogo } from "@phosphor-icons/react";
 
@@ -63,8 +69,11 @@ const projects = [
 
 export default function Projects() {
   return (
-    <section id="projects" className="py-28 scroll-mt-16">
-      <div className="max-w-6xl mx-auto px-6">
+    <section id="projects" className="py-28 scroll-mt-16 relative overflow-hidden">
+      <Scene />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg/50 to-bg z-[1]" />
+      <div className="relative z-10">
+        <div className="max-w-6xl mx-auto px-6">
         <div className="mb-16">
           <span className="section-label">Projects</span>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
@@ -150,7 +159,8 @@ export default function Projects() {
             to { opacity: 1; }
           }
         `}</style>
-      </div>
+        </div>
+        </div>
     </section>
   );
 }

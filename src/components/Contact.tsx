@@ -1,11 +1,20 @@
 "use client";
+import dynamic from "next/dynamic";
+
+const Scene = dynamic(() => import("./SectionScenes").then((m) => ({ default: m.ContactScene })), {
+  ssr: false,
+  loading: () => null,
+});
 
 import { GithubLogo, LinkedinLogo, PaperPlaneRight } from "@phosphor-icons/react";
 
 export default function Contact() {
   return (
-    <section id="contact" className="py-28 scroll-mt-16">
-      <div className="max-w-6xl mx-auto px-6">
+    <section id="contact" className="py-28 scroll-mt-16 relative overflow-hidden">
+      <Scene />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg/50 to-bg z-[1]" />
+      <div className="relative z-10">
+        <div className="max-w-6xl mx-auto px-6">
         <div className="relative rounded-[var(--radius)] border border-border bg-surface-elevated p-12 md:p-20 text-center overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-accent/0 via-accent/30 to-accent/0" />
 
@@ -49,6 +58,7 @@ export default function Contact() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </section>
   );
