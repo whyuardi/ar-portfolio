@@ -7,7 +7,6 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 
-// Chromatic aberration
 const ChromaShader = {
   uniforms: { tDiffuse: { value: null }, amount: { value: 0.002 } },
   vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
@@ -17,77 +16,6 @@ const ChromaShader = {
     gl_FragColor=vec4(texture2D(tDiffuse,vUv+o).r,texture2D(tDiffuse,vUv).g,texture2D(tDiffuse,vUv-o).b,1.);}`,
 };
 
-// ─── CUSTOM PARAMETRIC: Morus Topology (twisted torus variant) ───
-function createMorusGeometry(p: number, q: number, R: number, r: number, segments: number) {
-  const geo = new THREE.BufferGeometry();
-  const verts: number[] = [];
-  const normals: number[] = [];
-  for (let i = 0; i <= segments; i++) {
-    const u = (i / segments) * Math.PI * 2;
-    for (let j = 0; j <= segments; j++) {
-      const v = (j / segments) * Math.PI * 2;
-      const x = (R + r * Math.cos(q * v)) * Math.cos(p * u);
-      const y = (R + r * Math.cos(q * v)) * Math.sin(p * u);
-      const z = r * Math.sin(q * v);
-      verts.push(x, y, z);
-      // Simple normal approximation
-      const nx = Math.cos(p * u);
-      const ny = Math.sin(p * u);
-      const nz = Math.sin(q * v);
-      normals.push(nx, ny, nz);
-    }
-  }
-  const indices: number[] = [];
-  for (let i = 0; i < segments; i++) {
-    for (let j = 0; j < segments; j++) {
-      const a = i * (segments + 1) + j;
-      const b = a + segments + 1;
-      indices.push(a, b, a + 1, b, b + 1, a + 1);
-    }
-  }
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-  geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
-  geo.setIndex(indices);
-  geo.computeVertexNormals();
-  return geo;
-}
-
-// ─── DNA HELIX ───
-function createDNAHelix(count: number, radius: number, height: number, turns: number) {
-  const geo = new THREE.BufferGeometry();
-  const positions: number[] = [];
-  const colors: number[] = [];
-  const c1 = new THREE.Color("#14d9c4");
-  const c2 = new THREE.Color("#a855f7");
-  for (let i = 0; i < count; i++) {
-    const t = i / count;
-    const angle = t * Math.PI * 2 * turns;
-    const y = (t - 0.5) * height;
-    // Strand 1
-    positions.push(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
-    colors.push(c1.r, c1.g, c1.b);
-    // Strand 2 (opposite)
-    positions.push(Math.cos(angle + Math.PI) * radius, y, Math.sin(angle + Math.PI) * radius);
-    colors.push(c2.r, c2.g, c2.b);
-    // Cross-links every N steps
-    if (i % 8 === 0) {
-      positions.push(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
-      colors.push(0.9, 0.9, 0.9);
-      positions.push(Math.cos(angle + Math.PI) * radius, y, Math.sin(angle + Math.PI) * radius);
-      colors.push(0.9, 0.9, 0.9);
-    }
-  }
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-  return geo;
-}
-
-// ─── WAVE MESH (animated terrain) ───
-function createWaveGrid(size: number, res: number) {
-  const geo = new THREE.PlaneGeometry(size, size, res, res);
-  return geo;
-}
-
 export default function FullCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<number>(0);
@@ -96,7 +24,6 @@ export default function FullCanvas() {
     const container = containerRef.current;
     if (!container) return;
 
-    // ─── SCENE ───
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0a0a0f, 0.012);
 
@@ -111,7 +38,6 @@ export default function FullCanvas() {
     renderer.toneMappingExposure = 1.5;
     container.appendChild(renderer.domElement);
 
-    // ─── POST-PROCESSING ───
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.6, 0.65);
@@ -119,75 +45,46 @@ export default function FullCanvas() {
     const chroma = new ShaderPass(ChromaShader);
     composer.addPass(chroma);
 
-    // ─── MAIN: MORUS TOPOLOGY (twisted torus — unique shape) ───
-    const morusGeo = createMorusGeometry(2, 3, 1.8, 0.6, 120);
-    const morusMat = new THREE.MeshPhysicalMaterial({
-      color: "#14d9c4",
-      metalness: 0.05,
-      roughness: 0.0,
-      transmission: 0.92,
-      thickness: 2.0,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.0,
-      ior: 2.5,
-      transparent: true,
-      opacity: 0.85,
-      emissive: "#14d9c4",
-      emissiveIntensity: 0.3,
+    // ─── MAIN ICOSAHEDRON ───
+    const mainGeo = new THREE.IcosahedronGeometry(2.2, 2);
+    const mainMat = new THREE.MeshPhysicalMaterial({
+      color: "#14d9c4", metalness: 0.1, roughness: 0.0,
+      transmission: 0.92, thickness: 2.0, clearcoat: 1.0,
+      clearcoatRoughness: 0.0, ior: 2.5, transparent: true,
+      opacity: 0.85, emissive: "#14d9c4", emissiveIntensity: 0.3,
       side: THREE.DoubleSide,
     });
-    const morusMesh = new THREE.Mesh(morusGeo, morusMat);
-    scene.add(morusMesh);
+    const mainMesh = new THREE.Mesh(mainGeo, mainMat);
+    scene.add(mainMesh);
 
-    // Wireframe
-    const morusWireGeo = createMorusGeometry(2, 3, 2.1, 0.7, 60);
-    const morusWireMat = new THREE.MeshBasicMaterial({ color: "#14d9c4", wireframe: true, transparent: true, opacity: 0.04 });
-    const morusWire = new THREE.Mesh(morusWireGeo, morusWireMat);
-    scene.add(morusWire);
+    const wireGeo = new THREE.IcosahedronGeometry(2.8, 0);
+    const wireMat = new THREE.MeshBasicMaterial({ color: "#14d9c4", wireframe: true, transparent: true, opacity: 0.04 });
+    const wireMesh = new THREE.Mesh(wireGeo, wireMat);
+    scene.add(wireMesh);
 
-    // Inner glow core
     const coreGeo = new THREE.IcosahedronGeometry(0.5, 3);
     const coreMat = new THREE.MeshBasicMaterial({ color: "#14d9c4", transparent: true, opacity: 0.35 });
     const coreMesh = new THREE.Mesh(coreGeo, coreMat);
     scene.add(coreMesh);
 
-    // ─── SECONDARY: DNA HELIX (flowing double helix) ───
-    const dnaGeo = createDNAHelix(300, 1.2, 12, 3);
-    const dnaMat = new THREE.PointsMaterial({
-      size: 0.06,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.7,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      sizeAttenuation: true,
+    // ─── SECONDARY ───
+    const dodecaGeo = new THREE.DodecahedronGeometry(1.0, 1);
+    const dodecaMat = new THREE.MeshPhysicalMaterial({
+      color: "#a855f7", metalness: 0.15, roughness: 0.0,
+      transmission: 0.85, thickness: 1.0, clearcoat: 1.0,
+      clearcoatRoughness: 0.0, ior: 2.0, transparent: true,
+      opacity: 0.8, emissive: "#a855f7", emissiveIntensity: 0.25,
+      side: THREE.DoubleSide,
     });
-    const dnaMesh = new THREE.Points(dnaGeo, dnaMat);
-    dnaMesh.position.set(0, 0, -5);
-    scene.add(dnaMesh);
+    const dodecaMesh = new THREE.Mesh(dodecaGeo, dodecaMat);
+    scene.add(dodecaMesh);
 
-    // DNA connecting lines
-    const dnaLineGeo = new THREE.BufferGeometry();
-    const dnaLinePositions: number[] = [];
-    const dnaLineColors: number[] = [];
-    const c1 = new THREE.Color("#14d9c4");
-    const c2 = new THREE.Color("#a855f7");
-    for (let i = 0; i < 300; i += 4) {
-      const t = i / 300;
-      const angle = t * Math.PI * 2 * 3;
-      const y = (t - 0.5) * 12;
-      dnaLinePositions.push(Math.cos(angle) * 1.2, y, Math.sin(angle) * 1.2 - 5);
-      dnaLinePositions.push(Math.cos(angle + Math.PI) * 1.2, y, Math.sin(angle + Math.PI) * 1.2 - 5);
-      dnaLineColors.push(c1.r, c1.g, c1.b);
-      dnaLineColors.push(c2.r, c2.g, c2.b);
-    }
-    dnaLineGeo.setAttribute("position", new THREE.Float32BufferAttribute(dnaLinePositions, 3));
-    dnaLineGeo.setAttribute("color", new THREE.Float32BufferAttribute(dnaLineColors, 3));
-    const dnaLineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.15 });
-    const dnaLines = new THREE.LineSegments(dnaLineGeo, dnaLineMat);
-    scene.add(dnaLines);
+    const dodecaWireGeo = new THREE.DodecahedronGeometry(1.3, 0);
+    const dodecaWireMat = new THREE.MeshBasicMaterial({ color: "#a855f7", wireframe: true, transparent: true, opacity: 0.04 });
+    const dodecaWire = new THREE.Mesh(dodecaWireGeo, dodecaWireMat);
+    scene.add(dodecaWire);
 
-    // ─── FLOATING SHAPES ───
+    // ─── FLOATERS ───
     type Floater = {
       mesh: THREE.Mesh;
       wire: THREE.Mesh;
@@ -215,18 +112,10 @@ export default function FullCanvas() {
 
     configs.forEach((cfg) => {
       const mat = new THREE.MeshPhysicalMaterial({
-        color: cfg.color,
-        metalness: 0.05,
-        roughness: 0.0,
-        transmission: 0.8,
-        thickness: 0.5,
-        clearcoat: 0.9,
-        clearcoatRoughness: 0.0,
-        transparent: true,
-        opacity: 0.6,
-        emissive: cfg.color,
-        emissiveIntensity: 0.2,
-        side: THREE.DoubleSide,
+        color: cfg.color, metalness: 0.05, roughness: 0.0,
+        transmission: 0.8, thickness: 0.5, clearcoat: 0.9,
+        clearcoatRoughness: 0.0, transparent: true, opacity: 0.6,
+        emissive: cfg.color, emissiveIntensity: 0.2, side: THREE.DoubleSide,
       });
       const mesh = new THREE.Mesh(cfg.geo, mat);
       scene.add(mesh);
@@ -259,20 +148,6 @@ export default function FullCanvas() {
       scene.add(mesh);
       rings.push({ mesh, speed: cfg.speed, axis: cfg.axis });
     });
-
-    // ─── WAVE GRID (bottom) ───
-    const waveGeo = createWaveGrid(40, 80);
-    const waveMat = new THREE.MeshBasicMaterial({
-      color: "#14d9c4",
-      wireframe: true,
-      transparent: true,
-      opacity: 0.04,
-      depthWrite: false,
-    });
-    const waveMesh = new THREE.Mesh(waveGeo, waveMat);
-    waveMesh.rotation.x = -Math.PI / 2;
-    waveMesh.position.set(0, -8, -5);
-    scene.add(waveMesh);
 
     // ─── PARTICLES ───
     const isMobile = window.innerWidth < 768;
@@ -324,11 +199,9 @@ export default function FullCanvas() {
     const onScroll = () => { const t = document.documentElement.scrollHeight - window.innerHeight; scrollT = t > 0 ? window.scrollY / t : 0; };
     window.addEventListener("scroll", onScroll, { passive: true });
 
-    // ─── RESIZE ───
     const onResize = () => { const w = window.innerWidth, h = window.innerHeight; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h); composer.setSize(w, h); };
     window.addEventListener("resize", onResize);
 
-    // ─── ANIMATE ───
     const clock = new THREE.Clock();
 
     function animate() {
@@ -339,60 +212,50 @@ export default function FullCanvas() {
       mouse.x += (mouse.tx - mouse.x) * 0.035;
       mouse.y += (mouse.ty - mouse.y) * 0.035;
 
-      // ─── CAMERA ───
+      // Camera
       camera.position.x = mouse.x * 2.5;
       camera.position.y = mouse.y * 1.8 - scroll * 5;
       camera.position.z = THREE.MathUtils.lerp(22, 13, scroll);
       camera.lookAt(0, -scroll * 5, 0);
       chroma.uniforms.amount.value = 0.001 + scroll * 0.003;
 
-      // ─── MORUS ───
+      // Main
       const mSpeed = 0.12 + scroll * 0.2;
-      morusMesh.rotation.x = t * mSpeed;
-      morusMesh.rotation.y = t * (mSpeed + 0.1);
-      morusMesh.rotation.z = t * 0.06;
-      const mScale = THREE.MathUtils.lerp(1.0, 0.35, scroll);
-      morusMesh.scale.setScalar(mScale);
-      morusMesh.position.x = mouse.x * 1.2;
-      morusMesh.position.y = mouse.y * 0.8 - scroll * 3;
-      morusMesh.position.z = -scroll * 2;
-      morusMat.emissiveIntensity = 0.25 + Math.sin(t * 2) * 0.15 + scroll * 0.2;
+      mainMesh.rotation.x = t * mSpeed;
+      mainMesh.rotation.y = t * (mSpeed + 0.1);
+      mainMesh.rotation.z = t * 0.06;
+      mainMesh.scale.setScalar(THREE.MathUtils.lerp(1.0, 0.35, scroll));
+      mainMesh.position.x = mouse.x * 1.2;
+      mainMesh.position.y = mouse.y * 0.8 - scroll * 3;
+      mainMesh.position.z = -scroll * 2;
+      mainMat.emissiveIntensity = 0.25 + Math.sin(t * 2) * 0.15 + scroll * 0.2;
 
-      morusWire.rotation.x = -t * (mSpeed * 0.6);
-      morusWire.rotation.y = t * (mSpeed * 0.8);
-      morusWire.scale.setScalar(THREE.MathUtils.lerp(1.0, 0.3, scroll));
-      morusWire.position.copy(morusMesh.position);
+      wireMesh.rotation.x = -t * (mSpeed * 0.6);
+      wireMesh.rotation.y = t * (mSpeed * 0.8);
+      wireMesh.scale.setScalar(THREE.MathUtils.lerp(1.0, 0.3, scroll));
+      wireMesh.position.copy(mainMesh.position);
 
-      // Core
       coreMesh.rotation.x = t * 0.6;
       coreMesh.rotation.z = t * 0.3;
-      const cPulse = 1 + Math.sin(t * 3) * 0.15;
-      coreMesh.scale.setScalar(cPulse * mScale);
-      coreMesh.position.copy(morusMesh.position);
+      coreMesh.scale.setScalar((1 + Math.sin(t * 3) * 0.15) * THREE.MathUtils.lerp(1.0, 0.35, scroll));
+      coreMesh.position.copy(mainMesh.position);
       coreMat.opacity = 0.25 + Math.sin(t * 2) * 0.15;
 
-      // ─── DNA HELIX: rotate + scroll ───
-      dnaMesh.rotation.y = t * 0.15;
-      dnaMesh.rotation.x = Math.sin(t * 0.1) * 0.1;
-      const dnaScale = THREE.MathUtils.lerp(1.0, 0.4, scroll);
-      dnaMesh.scale.setScalar(dnaScale);
-      dnaMesh.position.y = -scroll * 6;
+      // Dodeca
+      const dAngle = t * 0.4;
+      const dOrbit = THREE.MathUtils.lerp(4.0, 2.0, scroll);
+      dodecaMesh.position.x = Math.cos(dAngle) * dOrbit + mouse.x * 0.6;
+      dodecaMesh.position.y = Math.sin(dAngle * 0.6) * 2.5 + mouse.y * 0.4 - scroll * 2;
+      dodecaMesh.position.z = Math.sin(dAngle) * 2.5 - scroll * 4;
+      dodecaMesh.rotation.x = t * 0.5;
+      dodecaMesh.rotation.y = t * 0.35;
+      dodecaMesh.scale.setScalar(THREE.MathUtils.lerp(1.0, 0.5, scroll));
+      dodecaMat.emissiveIntensity = 0.2 + Math.sin(t * 2.5 + 1) * 0.1;
+      dodecaWire.position.copy(dodecaMesh.position);
+      dodecaWire.rotation.copy(dodecaMesh.rotation);
+      dodecaWire.scale.copy(dodecaMesh.scale);
 
-      dnaLines.rotation.copy(dnaMesh.rotation);
-      dnaLines.scale.copy(dnaMesh.scale);
-      dnaLines.position.copy(dnaMesh.position);
-
-      // ─── WAVE GRID: undulate ───
-      const wavePositions = waveGeo.attributes.position.array as Float32Array;
-      for (let i = 0; i < wavePositions.length; i += 3) {
-        const x = wavePositions[i];
-        const z = wavePositions[i + 1]; // plane is rotated
-        wavePositions[i + 2] = Math.sin(x * 0.3 + t * 1.5) * 0.5 + Math.cos(z * 0.2 + t * 0.8) * 0.3;
-      }
-      waveGeo.attributes.position.needsUpdate = true;
-      waveMat.opacity = 0.03 + Math.sin(t * 0.5) * 0.015;
-
-      // ─── FLOATERS ───
+      // Floaters
       floaters.forEach((f) => {
         const scatter = 1 + scroll * 3;
         const orbAngle = t * f.orbitSpeed + f.phase;
@@ -406,7 +269,7 @@ export default function FullCanvas() {
         f.mat.opacity = 0.6 * (1 - scroll * 0.7);
       });
 
-      // ─── RINGS ───
+      // Rings
       rings.forEach((r) => {
         const spd = r.speed * (1 + scroll * 3);
         if (r.axis === "x") r.mesh.rotation.x = t * spd;
@@ -415,7 +278,7 @@ export default function FullCanvas() {
         r.mesh.scale.setScalar(THREE.MathUtils.lerp(1.0, 1.8, scroll));
       });
 
-      // ─── PARTICLES: spiral flow ───
+      // Particles
       const pArr = pGeo.attributes.position.array as Float32Array;
       for (let i = 0; i < pCount; i++) {
         const i3 = i * 3;
@@ -433,7 +296,7 @@ export default function FullCanvas() {
       pGeo.attributes.position.needsUpdate = true;
       particles.rotation.y = t * (0.006 + scroll * 0.02);
 
-      // ─── LIGHT RAYS ───
+      // Light rays
       lightRays.forEach((ray, i) => {
         ray.rotation.z = (i / 8) * Math.PI + t * 0.08;
         ray.rotation.x = Math.sin(t * 0.3 + i) * 0.3;
