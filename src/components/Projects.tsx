@@ -63,7 +63,7 @@ const projects = [
 
 export default function Projects() {
   return (
-    <section id="projects" className="py-28">
+    <section id="projects" className="py-28 scroll-mt-16">
       <div className="max-w-6xl mx-auto px-6">
         <div className="mb-16">
           <span className="section-label">Projects</span>
@@ -80,7 +80,7 @@ export default function Projects() {
           {projects.map((p, i) => (
             <div
               key={p.title}
-              className={`group relative ${p.span} p-6 md:p-8 rounded-[var(--radius)] border border-border bg-surface hover:border-accent/20 hover:bg-surface-elevated transition-all duration-500 flex flex-col`}
+              className={`group relative ${p.span} p-6 md:p-8 rounded-[var(--radius)] border border-border bg-surface hover:border-accent/20 hover:bg-surface-elevated transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-accent/5 flex flex-col`}
               style={{
                 opacity: 0,
                 animation: `fadeIn 0.6s ${0.15 * i}s forwards`,

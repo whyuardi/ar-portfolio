@@ -4,7 +4,7 @@ import { GithubLogo, LinkedinLogo, PaperPlaneRight } from "@phosphor-icons/react
 
 export default function Contact() {
   return (
-    <section id="contact" className="py-28">
+    <section id="contact" className="py-28 scroll-mt-16">
       <div className="max-w-6xl mx-auto px-6">
         <div className="relative rounded-[var(--radius)] border border-border bg-surface-elevated p-12 md:p-20 text-center overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-accent/0 via-accent/30 to-accent/0" />

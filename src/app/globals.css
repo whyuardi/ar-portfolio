@@ -10,11 +10,11 @@
   --color-accent-dim: #10b8a6;
   --color-accent-glow: rgba(20, 217, 196, 0.06);
   --color-text: #e8e8ed;
-  --color-text-secondary: #8888a0;
-  --color-text-muted: #555570;
+  --color-text-secondary: #a0a0b8;
+  --color-text-muted: #6b6b88;
   --radius: 14px;
-  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", "JetBrains Mono", monospace;
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), "JetBrains Mono", monospace;
 }
 
 * {

@@ -1,16 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export default function ParticleNetwork() {
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-
-  const handleInteraction = useCallback(() => {
-    // Reset orbit controls auto-rotate when user interacts
-  }, []);
+  const frameRef = useRef<number>(0);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -24,7 +21,6 @@ export default function ParticleNetwork() {
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
-    renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
     // === ORBIT CONTROLS — drag to rotate! ===
@@ -132,7 +128,7 @@ export default function ParticleNetwork() {
     createOrbiter(0.7, "#6ee7d6", 8.0, 0.15, 0.6);
 
     // === PARTICLES ===
-    const particleCount = 1200;
+    const particleCount = window.innerWidth < 768 ? 800 : 1200;
     const pos = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount * 3; i++) {
       pos[i] = (Math.random() - 0.5) * 50;
@@ -286,7 +282,7 @@ export default function ParticleNetwork() {
     const target = { x: 0, y: 0 };
 
     function animate() {
-      requestAnimationFrame(animate);
+      frameRef.current = requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
 
       // Torus knot self-rotation (even with OrbitControls, the object rotates internally)
@@ -328,6 +324,7 @@ export default function ParticleNetwork() {
     animate();
 
     return () => {
+      cancelAnimationFrame(frameRef.current);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("resize", onResize);
       renderer.domElement.removeEventListener("click", onClick);

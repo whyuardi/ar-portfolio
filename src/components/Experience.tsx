@@ -37,7 +37,7 @@ const experience = [
 
 export default function Experience() {
   return (
-    <section id="experience" className="py-28">
+    <section id="experience" className="py-28 scroll-mt-16">
       <div className="max-w-6xl mx-auto px-6">
         <div className="mb-16">
           <span className="section-label">Background</span>
