@@ -4,3 +4,9 @@ out/
 .env.local
 .env*.local
 .vercel
+
+# Agent files
+AGENTS.md
+SOUL.md
+CLAUDE.md
+.cursorrules
