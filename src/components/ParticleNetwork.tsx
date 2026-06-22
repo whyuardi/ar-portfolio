@@ -3,6 +3,9 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 export default function ParticleNetwork() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -13,233 +16,293 @@ export default function ParticleNetwork() {
     const container = containerRef.current;
     if (!container) return;
 
+    // === SCENE SETUP ===
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.set(0, 1, 16);
+    const camera = new THREE.PerspectiveCamera(
+      50,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 2, 18);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: "high-performance",
+    });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
     container.appendChild(renderer.domElement);
 
-    // === ORBIT CONTROLS — drag to rotate! ===
+    // === POST-PROCESSING: BLOOM ===
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(container.clientWidth, container.clientHeight),
+      0.8,   // strength
+      0.4,   // radius
+      0.85   // threshold
+    );
+    composer.addPass(bloomPass);
+
+    // === ORBIT CONTROLS ===
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
+    controls.dampingFactor = 0.06;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 1.2;
-    controls.minDistance = 6;
-    controls.maxDistance = 30;
-    controls.maxPolarAngle = Math.PI / 2.2;
+    controls.autoRotateSpeed = 0.8;
+    controls.minDistance = 8;
+    controls.maxDistance = 35;
+    controls.maxPolarAngle = Math.PI / 2.1;
     controls.target.set(0, 0.5, 0);
     controlsRef.current = controls;
 
-    // === MAIN 3D OBJECT: Torus Knot ===
-    const knotGeo = new THREE.TorusKnotGeometry(2.2, 0.7, 128, 16);
-    const knotMat = new THREE.MeshPhysicalMaterial({
+    // === MAIN OBJECT: ICOSAHEDRON (low-poly gem) ===
+    const mainGeo = new THREE.IcosahedronGeometry(2.5, 1);
+    const mainMat = new THREE.MeshPhysicalMaterial({
       color: "#14d9c4",
-      metalness: 0.9,
-      roughness: 0.15,
-      clearcoat: 0.4,
+      metalness: 0.95,
+      roughness: 0.05,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.05,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.85,
       emissive: "#14d9c4",
-      emissiveIntensity: 0.15,
+      emissiveIntensity: 0.2,
+      envMapIntensity: 1.5,
     });
-    const knot = new THREE.Mesh(knotGeo, knotMat);
-    knot.position.set(0, 0.5, 0);
-    knot.userData.isClickable = true;
-    knot.userData.originalColor = "#14d9c4";
-    scene.add(knot);
+    const mainMesh = new THREE.Mesh(mainGeo, mainMat);
+    mainMesh.position.set(0, 0.5, 0);
+    mainMesh.userData.isClickable = true;
+    mainMesh.userData.originalColor = "#14d9c4";
+    scene.add(mainMesh);
 
-    // Wireframe overlay
-    const knotWireGeo = new THREE.TorusKnotGeometry(2.4, 0.8, 64, 8);
-    const knotWireMat = new THREE.MeshPhysicalMaterial({
+    // Wireframe shell
+    const wireGeo = new THREE.IcosahedronGeometry(3.0, 0);
+    const wireMat = new THREE.MeshBasicMaterial({
       color: "#6ee7d6",
       wireframe: true,
       transparent: true,
-      opacity: 0.2,
-      emissive: "#14d9c4",
-      emissiveIntensity: 0.05,
+      opacity: 0.12,
     });
-    const knotWire = new THREE.Mesh(knotWireGeo, knotWireMat);
-    knotWire.position.set(0, 0.5, 0);
-    scene.add(knotWire);
+    const wireMesh = new THREE.Mesh(wireGeo, wireMat);
+    wireMesh.position.set(0, 0.5, 0);
+    scene.add(wireMesh);
 
-    // Glow ring
-    const glowGeo = new THREE.RingGeometry(2.8, 3.5, 64);
-    const glowMat = new THREE.MeshBasicMaterial({
+    // Inner core glow
+    const coreGeo = new THREE.IcosahedronGeometry(1.2, 2);
+    const coreMat = new THREE.MeshBasicMaterial({
       color: "#14d9c4",
       transparent: true,
-      opacity: 0.08,
-      side: THREE.DoubleSide,
-      depthWrite: false,
+      opacity: 0.3,
     });
-    const glowRing = new THREE.Mesh(glowGeo, glowMat);
-    glowRing.position.set(0, 0.5, -1);
-    scene.add(glowRing);
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    coreMesh.position.set(0, 0.5, 0);
+    scene.add(coreMesh);
 
-    // === ORBITING ICOSAHEDRONS ===
-    const orbiters: { mesh: THREE.Mesh; wireframe: THREE.Mesh; radius: number; angle: number; speed: number; tilt: number }[] = [];
+    // === ORBITING SHAPES ===
+    const orbiters: {
+      mesh: THREE.Mesh;
+      wire: THREE.Mesh;
+      radius: number;
+      angle: number;
+      speed: number;
+      tilt: number;
+      rotSpeed: number;
+    }[] = [];
 
-    function createOrbiter(size: number, color: string, radius: number, speed: number, tilt: number) {
-      const geo = new THREE.IcosahedronGeometry(size, 0);
+    const orbiterConfigs: {
+      geo: THREE.BufferGeometry;
+      size: number;
+      color: string;
+      radius: number;
+      speed: number;
+      tilt: number;
+    }[] = [
+      { geo: new THREE.OctahedronGeometry(0.5, 0), size: 0.5, color: "#a855f7", radius: 5.5, speed: 0.35, tilt: 0.3 },
+      { geo: new THREE.DodecahedronGeometry(0.4, 0), size: 0.4, color: "#f59e0b", radius: 4.5, speed: -0.28, tilt: -0.2 },
+      { geo: new THREE.TetrahedronGeometry(0.45, 0), size: 0.45, color: "#ef4444", radius: 6.5, speed: 0.22, tilt: 0.5 },
+      { geo: new THREE.IcosahedronGeometry(0.35, 0), size: 0.35, color: "#06b6d4", radius: 3.8, speed: -0.42, tilt: -0.35 },
+      { geo: new THREE.OctahedronGeometry(0.6, 0), size: 0.6, color: "#10b981", radius: 7.5, speed: 0.18, tilt: 0.6 },
+      { geo: new THREE.TetrahedronGeometry(0.3, 0), size: 0.3, color: "#ec4899", radius: 5.0, speed: -0.32, tilt: -0.55 },
+    ];
+
+    orbiterConfigs.forEach((cfg) => {
       const mat = new THREE.MeshPhysicalMaterial({
-        color,
-        metalness: 0.7,
-        roughness: 0.2,
+        color: cfg.color,
+        metalness: 0.8,
+        roughness: 0.15,
         transparent: true,
-        opacity: 0.7,
-        emissive: color,
-        emissiveIntensity: 0.1,
+        opacity: 0.75,
+        emissive: cfg.color,
+        emissiveIntensity: 0.15,
+        clearcoat: 0.6,
       });
-      const mesh = new THREE.Mesh(geo, mat);
+      const mesh = new THREE.Mesh(cfg.geo, mat);
       mesh.userData.isClickable = true;
-      mesh.userData.originalColor = color;
+      mesh.userData.originalColor = cfg.color;
       scene.add(mesh);
 
-      const wfGeo = new THREE.IcosahedronGeometry(size * 1.3, 0);
-      const wfMat = new THREE.MeshBasicMaterial({
-        color,
+      const wGeo = cfg.geo.clone();
+      const wMat = new THREE.MeshBasicMaterial({
+        color: cfg.color,
         wireframe: true,
         transparent: true,
-        opacity: 0.15,
+        opacity: 0.12,
       });
-      const wfMesh = new THREE.Mesh(wfGeo, wfMat);
-      scene.add(wfMesh);
+      const wMesh = new THREE.Mesh(wGeo, wMat);
+      scene.add(wMesh);
 
-      const entry = {
+      orbiters.push({
         mesh,
-        wireframe: wfMesh,
-        radius,
+        wire: wMesh,
+        radius: cfg.radius,
         angle: Math.random() * Math.PI * 2,
-        speed,
-        tilt,
-      };
-      orbiters.push(entry);
-      return entry;
-    }
+        speed: cfg.speed,
+        tilt: cfg.tilt,
+        rotSpeed: 0.3 + Math.random() * 0.4,
+      });
+    });
 
-    createOrbiter(0.6, "#6ee7d6", 5.5, 0.4, 0.3);
-    createOrbiter(0.4, "#7c3aed", 4.2, -0.3, -0.2);
-    createOrbiter(0.5, "#14d9c4", 6.8, 0.25, 0.5);
-    createOrbiter(0.3, "#f0c", 3.5, -0.5, -0.4);
-    createOrbiter(0.7, "#6ee7d6", 8.0, 0.15, 0.6);
+    // === ENERGY RINGS ===
+    const rings: { mesh: THREE.Mesh; speed: number; axis: "x" | "y" | "z" }[] = [];
+    const ringConfigs = [
+      { radius: 3.5, tube: 0.02, color: "#14d9c4", speed: 0.4, opacity: 0.25, axis: "x" as const },
+      { radius: 4.2, tube: 0.015, color: "#a855f7", speed: -0.3, opacity: 0.18, axis: "y" as const },
+      { radius: 3.8, tube: 0.018, color: "#f59e0b", speed: 0.25, opacity: 0.15, axis: "z" as const },
+    ];
+    ringConfigs.forEach((cfg) => {
+      const geo = new THREE.TorusGeometry(cfg.radius, cfg.tube, 16, 100);
+      const mat = new THREE.MeshBasicMaterial({
+        color: cfg.color,
+        transparent: true,
+        opacity: cfg.opacity,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(0, 0.5, 0);
+      scene.add(mesh);
+      rings.push({ mesh, speed: cfg.speed, axis: cfg.axis });
+    });
 
     // === PARTICLES ===
-    const particleCount = window.innerWidth < 768 ? 800 : 1200;
-    const pos = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount * 3; i++) {
-      pos[i] = (Math.random() - 0.5) * 50;
+    const isMobile = window.innerWidth < 768;
+    const particleCount = isMobile ? 600 : 1000;
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const sizes = new Float32Array(particleCount);
+
+    const palette = [
+      new THREE.Color("#14d9c4"),
+      new THREE.Color("#a855f7"),
+      new THREE.Color("#f59e0b"),
+      new THREE.Color("#06b6d4"),
+    ];
+
+    for (let i = 0; i < particleCount; i++) {
+      const i3 = i * 3;
+      // Spiral distribution
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 8 + Math.random() * 15;
+      positions[i3] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i3 + 2] = r * Math.cos(phi);
+
+      const c = palette[Math.floor(Math.random() * palette.length)];
+      colors[i3] = c.r;
+      colors[i3 + 1] = c.g;
+      colors[i3 + 2] = c.b;
+
+      sizes[i] = 0.03 + Math.random() * 0.06;
     }
+
     const pGeo = new THREE.BufferGeometry();
-    pGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    pGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    pGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    pGeo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+
     const pMat = new THREE.PointsMaterial({
-      size: 0.06,
-      color: "#14d9c4",
+      size: 0.08,
+      vertexColors: true,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.45,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
+      sizeAttenuation: true,
     });
     const particles = new THREE.Points(pGeo, pMat);
     scene.add(particles);
 
-    // === CONNECTION LINES ===
-    const lineMat = new THREE.LineBasicMaterial({
+    // === ENERGY PULSE (periodic burst) ===
+    const pulseGeo = new THREE.SphereGeometry(0.5, 32, 32);
+    const pulseMat = new THREE.MeshBasicMaterial({
       color: "#14d9c4",
       transparent: true,
-      opacity: 0.05,
+      opacity: 0,
       depthWrite: false,
     });
-    const linePositions = new Float32Array(particleCount * 6);
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute("position", new THREE.BufferAttribute(linePositions, 3));
-    lineGeo.setDrawRange(0, 0);
+    const pulseMesh = new THREE.Mesh(pulseGeo, pulseMat);
+    pulseMesh.position.set(0, 0.5, 0);
+    scene.add(pulseMesh);
 
-    function updateLines() {
-      const p = pGeo.attributes.position.array as Float32Array;
-      const maxDist = 5;
-      const conn: number[] = [];
-      for (let i = 0; i < particleCount && conn.length < 6000; i++) {
-        for (let j = i + 1; j < particleCount && conn.length < 6000; j++) {
-          const dx = p[i * 3] - p[j * 3];
-          const dy = p[i * 3 + 1] - p[j * 3 + 1];
-          const dz = p[i * 3 + 2] - p[j * 3 + 2];
-          if (dx * dx + dy * dy + dz * dz < maxDist * maxDist) {
-            conn.push(p[i * 3], p[i * 3 + 1], p[i * 3 + 2], p[j * 3], p[j * 3 + 1], p[j * 3 + 2]);
-          }
-        }
-      }
-      if (conn.length > 0) {
-        lineGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(conn), 3));
-        lineGeo.setDrawRange(0, conn.length / 3);
-      }
-    }
-    updateLines();
-    const lineSegments = new THREE.LineSegments(lineGeo, lineMat);
-    scene.add(lineSegments);
-
-    // === RAYCASTER — KLIK INTERACTIVE ===
+    // === RAYCASTER ===
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    const clickableObjects: THREE.Mesh[] = [];
-
+    const clickable: THREE.Mesh[] = [];
     scene.traverse((child) => {
       if (child instanceof THREE.Mesh && child.userData.isClickable) {
-        clickableObjects.push(child);
+        clickable.push(child);
       }
     });
-
-    function getClickableMeshes(): THREE.Mesh[] {
-      return clickableObjects;
-    }
 
     const onClick = (event: MouseEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
       raycaster.setFromCamera(pointer, camera);
-      const intersects = raycaster.intersectObjects(getClickableMeshes());
-
-      if (intersects.length > 0) {
-        const hit = intersects[0].object as THREE.Mesh;
+      const hits = raycaster.intersectObjects(clickable);
+      if (hits.length > 0) {
+        const hit = hits[0].object as THREE.Mesh;
         const mat = hit.material as THREE.MeshPhysicalMaterial;
         const orig = hit.userData.originalColor as string;
 
-        // Flash effect: change color momentarily
-        mat.color.setHex(Math.random() * 0xffffff);
-        mat.emissive.setHex(Math.random() * 0xffffff);
-        mat.emissiveIntensity = 0.8;
+        // Flash + scale
+        mat.emissiveIntensity = 1.0;
+        mat.emissive.setHex(0xffffff);
+        hit.scale.set(1.35, 1.35, 1.35);
 
-        // Scale bounce
-        const origScale = hit.scale.x;
-        hit.scale.set(1.3, 1.3, 1.3);
+        // Trigger pulse
+        pulseMat.opacity = 0.6;
+        pulseMesh.scale.set(1, 1, 1);
 
         setTimeout(() => {
-          mat.color.set(orig);
           mat.emissive.set(orig);
-          mat.emissiveIntensity = 0.1;
-          hit.scale.set(origScale, origScale, origScale);
-        }, 400);
+          mat.emissiveIntensity = 0.15;
+          hit.scale.set(1, 1, 1);
+        }, 500);
 
-        // Also change knot wireframe color for fun
-        knotWireMat.color.setHex(Math.random() * 0xffffff);
+        wireMat.color.setHex(Math.random() * 0xffffff);
       }
     };
 
     renderer.domElement.style.cursor = "grab";
     renderer.domElement.addEventListener("click", onClick);
 
-    // === MOUSE PARALLAX (subtle, secondary to OrbitControls) ===
-    const mouse = { x: 0, y: 0 };
-    const onMouseMove = (e: MouseEvent) => {
-      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    // === SCROLL-BASED PARALLAX ===
+    let scrollProgress = 0;
+    const onScroll = () => {
+      const hero = document.getElementById("hero");
+      if (hero) {
+        const rect = hero.getBoundingClientRect();
+        scrollProgress = Math.max(0, Math.min(1, -rect.top / rect.height));
+      }
     };
-    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("scroll", onScroll, { passive: true });
 
     // === RESIZE ===
     const onResize = () => {
@@ -248,19 +311,19 @@ export default function ParticleNetwork() {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      composer.setSize(w, h);
     };
     window.addEventListener("resize", onResize);
 
-    // === INSTRUCTIONS OVERLAY ===
+    // === INSTRUCTIONS ===
     const instructions = document.createElement("div");
-    instructions.id = "interact-hint";
     instructions.innerHTML = "🖱 Drag to orbit · Click to interact";
     instructions.style.cssText = `
       position: absolute;
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      color: rgba(136,136,160,0.6);
+      color: rgba(136,136,160,0.5);
       font-family: 'Geist Mono', monospace;
       font-size: 11px;
       letter-spacing: 0.05em;
@@ -270,69 +333,90 @@ export default function ParticleNetwork() {
       z-index: 5;
     `;
     container.appendChild(instructions);
-
-    // Fade out instructions after 6 seconds
     setTimeout(() => {
       instructions.style.opacity = "0";
       setTimeout(() => instructions.remove(), 2000);
     }, 6000);
 
-    // === ANIMATION ===
+    // === ANIMATION LOOP ===
     const clock = new THREE.Clock();
-    const target = { x: 0, y: 0 };
+    let pulseScale = 1;
 
     function animate() {
       frameRef.current = requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
 
-      // Torus knot self-rotation (even with OrbitControls, the object rotates internally)
-      knot.rotation.x = t * 0.3;
-      knot.rotation.y = t * 0.5;
-      knotWire.rotation.x = t * 0.35;
-      knotWire.rotation.y = t * 0.55;
-      glowRing.rotation.z = t * 0.1;
+      // Main mesh rotation
+      mainMesh.rotation.x = t * 0.25;
+      mainMesh.rotation.y = t * 0.4;
 
-      // Pulse glow
-      knotMat.emissiveIntensity = 0.1 + Math.sin(t * 1.5) * 0.08;
-      glowMat.opacity = 0.06 + Math.sin(t * 2) * 0.03;
+      // Wireframe counter-rotation
+      wireMesh.rotation.x = -t * 0.15;
+      wireMesh.rotation.y = t * 0.2;
 
-      // Orbiters (in local space, not affected by OrbitControls)
-      orbiters.forEach((o) => {
-        o.angle += o.speed * 0.01;
-        const x = Math.cos(o.angle) * o.radius;
-        const z = Math.sin(o.angle) * o.radius;
-        o.mesh.position.set(x, 0.5 + Math.sin(t * 0.8 + o.radius) * 0.8, z);
-        o.mesh.rotation.x = t * 0.5 + o.angle;
-        o.mesh.rotation.y = t * 0.3 + o.angle;
-        o.wireframe.position.copy(o.mesh.position);
-        o.wireframe.rotation.copy(o.mesh.rotation);
+      // Core breathing
+      coreMesh.rotation.x = t * 0.6;
+      coreMesh.rotation.z = t * 0.3;
+      const coreScale = 1 + Math.sin(t * 2) * 0.08;
+      coreMesh.scale.set(coreScale, coreScale, coreScale);
+
+      // Main mesh pulse
+      mainMat.emissiveIntensity = 0.15 + Math.sin(t * 1.5) * 0.1;
+
+      // Energy rings rotation
+      rings.forEach((r) => {
+        if (r.axis === "x") r.mesh.rotation.x = t * r.speed;
+        else if (r.axis === "y") r.mesh.rotation.y = t * r.speed;
+        else r.mesh.rotation.z = t * r.speed;
       });
 
-      // Particles slow rotation
-      particles.rotation.y = t * 0.008;
-      lineSegments.rotation.y = t * 0.008;
+      // Orbiters
+      orbiters.forEach((o) => {
+        o.angle += o.speed * 0.012;
+        const x = Math.cos(o.angle) * o.radius;
+        const z = Math.sin(o.angle) * o.radius;
+        const y = 0.5 + Math.sin(t * 0.6 + o.radius) * 1.0 * (1 + Math.abs(o.tilt));
+        o.mesh.position.set(x, y, z);
+        o.mesh.rotation.x = t * o.rotSpeed + o.angle;
+        o.mesh.rotation.y = t * o.rotSpeed * 0.7;
+        o.wire.position.copy(o.mesh.position);
+        o.wire.rotation.copy(o.mesh.rotation);
+      });
 
-      // Subtle mouse parallax on the knot itself (when not dragging)
-      if (!controls.enabled) {
-        target.x += (mouse.x * 2 - target.x) * 0.03;
-        target.y += (-mouse.y * 2 - target.y) * 0.03;
+      // Particles drift
+      particles.rotation.y = t * 0.015;
+      particles.rotation.x = Math.sin(t * 0.1) * 0.05;
+
+      // Energy pulse expansion
+      if (pulseMat.opacity > 0.01) {
+        pulseScale += 0.08;
+        pulseMesh.scale.set(pulseScale, pulseScale, pulseScale);
+        pulseMat.opacity *= 0.95;
+      } else {
+        pulseScale = 1;
+        pulseMesh.scale.set(1, 1, 1);
       }
 
+      // Scroll-based opacity fade
+      const fade = 1 - scrollProgress * 0.6;
+      mainMat.opacity = 0.85 * fade;
+      wireMat.opacity = 0.12 * fade;
+      pMat.opacity = 0.45 * fade;
+
       controls.update();
-      renderer.render(scene, camera);
+      composer.render();
     }
     animate();
 
     return () => {
       cancelAnimationFrame(frameRef.current);
-      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
       renderer.domElement.removeEventListener("click", onClick);
       controls.dispose();
       container.removeChild(renderer.domElement);
-      if (document.getElementById("interact-hint")) {
-        instructions.remove();
-      }
+      if (instructions.parentNode) instructions.remove();
+      composer.dispose();
       renderer.dispose();
     };
   }, []);
