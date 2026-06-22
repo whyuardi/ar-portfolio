@@ -13,7 +13,7 @@ export default function Hero() {
     <section className="relative min-h-[100dvh] flex items-center overflow-hidden">
       <ParticleNetwork />
 
-      <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/60 to-transparent z-[1]" />
+      <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/30 to-transparent z-[1]" />
 
       <div className="relative z-10 w-full">
         <div className="max-w-6xl mx-auto px-6 pt-32 pb-24">

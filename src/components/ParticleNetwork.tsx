@@ -11,112 +11,166 @@ export default function ParticleNetwork() {
     if (!container) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#06060b");
 
-    const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.z = 35;
+    const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.z = 18;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
     container.appendChild(renderer.domElement);
 
-    // --- Particles ---
-    const particleCount = 1800;
-    const positions = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount * 3; i++) {
-      positions[i] = (Math.random() - 0.5) * 80;
-    }
-
-    const particleGeo = new THREE.BufferGeometry();
-    particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-
-    const particleMat = new THREE.PointsMaterial({
-      size: 0.08,
+    // === MAIN 3D OBJECT: Torus Knot (center, prominent) ===
+    const knotGeo = new THREE.TorusKnotGeometry(2.2, 0.7, 128, 16);
+    const knotMat = new THREE.MeshPhysicalMaterial({
       color: "#14d9c4",
+      metalness: 0.9,
+      roughness: 0.15,
+      clearcoat: 0.4,
       transparent: true,
-      opacity: 0.6,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.85,
+      emissive: "#14d9c4",
+      emissiveIntensity: 0.15,
     });
+    const knot = new THREE.Mesh(knotGeo, knotMat);
+    knot.position.set(0, 0.5, 0);
+    scene.add(knot);
 
-    const particles = new THREE.Points(particleGeo, particleMat);
-    scene.add(particles);
+    // Wireframe overlay
+    const knotWireGeo = new THREE.TorusKnotGeometry(2.4, 0.8, 64, 8);
+    const knotWireMat = new THREE.MeshPhysicalMaterial({
+      color: "#6ee7d6",
+      wireframe: true,
+      transparent: true,
+      opacity: 0.25,
+      emissive: "#14d9c4",
+      emissiveIntensity: 0.05,
+    });
+    const knotWire = new THREE.Mesh(knotWireGeo, knotWireMat);
+    knotWire.position.set(0, 0.5, 0);
+    scene.add(knotWire);
 
-    // --- Connection Lines ---
-    const linesMat = new THREE.LineBasicMaterial({
+    // Glow ring around knot
+    const glowGeo = new THREE.RingGeometry(2.8, 3.5, 64);
+    const glowMat = new THREE.MeshBasicMaterial({
       color: "#14d9c4",
       transparent: true,
       opacity: 0.08,
+      side: THREE.DoubleSide,
+      depthWrite: false,
     });
+    const glowRing = new THREE.Mesh(glowGeo, glowMat);
+    glowRing.position.set(0, 0.5, -1);
+    scene.add(glowRing);
 
-    // --- Floating Geometry Nodes ---
-    const geometries: { mesh: THREE.Mesh; rotSpeed: number; floatSpeed: number; floatAmp: number; baseY: number }[] = [];
+    // === ORBITING GEOMETRIES ===
+    const orbiters: { mesh: THREE.Mesh; radius: number; angle: number; speed: number; tilt: number }[] = [];
 
-    function createIcosahedron(size: number, color: string, x: number, y: number, z: number, wireframe = false) {
+    function createOrbiter(size: number, color: string, radius: number, speed: number, tilt: number) {
       const geo = new THREE.IcosahedronGeometry(size, 0);
-      const mat = new THREE.MeshPhysicalMaterial({
-        color,
-        wireframe,
-        metalness: 0.9,
-        roughness: 0.1,
-        transparent: true,
-        opacity: wireframe ? 0.15 : 0.4,
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(x, y, z);
-      scene.add(mesh);
-      return mesh;
-    }
-
-    function createTorusKnot(size: number, color: string, x: number, y: number, z: number) {
-      const geo = new THREE.TorusKnotGeometry(size * 0.6, size * 0.2, 64, 8);
       const mat = new THREE.MeshPhysicalMaterial({
         color,
         metalness: 0.7,
         roughness: 0.2,
         transparent: true,
-        opacity: 0.3,
-        wireframe: true,
+        opacity: 0.6,
+        emissive: color,
+        emissiveIntensity: 0.1,
       });
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(x, y, z);
       scene.add(mesh);
-      return mesh;
-    }
 
-    function createOctahedron(size: number, color: string, x: number, y: number, z: number) {
-      const geo = new THREE.OctahedronGeometry(size);
-      const mat = new THREE.MeshPhysicalMaterial({
+      // Wireframe shell
+      const wfGeo = new THREE.IcosahedronGeometry(size * 1.3, 0);
+      const wfMat = new THREE.MeshBasicMaterial({
         color,
-        metalness: 0.3,
-        roughness: 0.6,
-        transparent: true,
-        opacity: 0.2,
         wireframe: true,
+        transparent: true,
+        opacity: 0.15,
       });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(x, y, z);
-      scene.add(mesh);
-      return mesh;
+      const wfMesh = new THREE.Mesh(wfGeo, wfMat);
+      scene.add(wfMesh);
+
+      orbiters.push({
+        mesh,
+        radius,
+        angle: Math.random() * Math.PI * 2,
+        speed,
+        tilt,
+      });
+      orbiters.push({
+        mesh: wfMesh,
+        radius: radius + 0.3,
+        angle: Math.random() * Math.PI * 2,
+        speed: speed * -0.7,
+        tilt,
+      });
     }
 
-    // Central icosahedron (main feature)
-    const centerMesh = createIcosahedron(3.5, "#14d9c4", 0, 0, 0);
-    const centerMeshWire = createIcosahedron(3.8, "#14d9c4", 0, 0, 0, true);
-    geometries.push({ mesh: centerMesh, rotSpeed: 0.003, floatSpeed: 0.5, floatAmp: 0.3, baseY: 0 });
-    geometries.push({ mesh: centerMeshWire, rotSpeed: -0.005, floatSpeed: 0.5, floatAmp: 0.3, baseY: 0 });
+    createOrbiter(0.6, "#6ee7d6", 5.5, 0.4, 0.3);
+    createOrbiter(0.4, "#7c3aed", 4.2, -0.3, -0.2);
+    createOrbiter(0.5, "#14d9c4", 6.8, 0.25, 0.5);
+    createOrbiter(0.3, "#f0c", 3.5, -0.5, -0.4);
+    createOrbiter(0.7, "#6ee7d6", 8.0, 0.15, 0.6);
 
-    // Orbiting elements
-    const orbiters = [
-      { mesh: createTorusKnot(2, "#6ee7d6", 8, 2, -3), rotSpeed: 0.01, floatSpeed: 0.7, floatAmp: 0.5, baseY: 2 },
-      { mesh: createOctahedron(2, "#14d9c4", -7, -3, 4), rotSpeed: 0.008, floatSpeed: 0.3, floatAmp: 0.4, baseY: -3 },
-      { mesh: createIcosahedron(1.5, "#6ee7d6", 5, -4, -6, true), rotSpeed: -0.006, floatSpeed: 0.6, floatAmp: 0.6, baseY: -4 },
-      { mesh: createTorusKnot(1.5, "#6ee7d6", -6, 3, -5), rotSpeed: 0.012, floatSpeed: 0.4, floatAmp: 0.3, baseY: 3 },
-    ];
+    // === AMBIENT PARTICLES ===
+    const particleCount = 1200;
+    const pos = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount * 3; i++) {
+      pos[i] = (Math.random() - 0.5) * 50;
+    }
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const pMat = new THREE.PointsMaterial({
+      size: 0.06,
+      color: "#14d9c4",
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const particles = new THREE.Points(pGeo, pMat);
+    scene.add(particles);
 
-    geometries.push(...orbiters);
+    // === CONNECTION LINES ===
+    const lineMat = new THREE.LineBasicMaterial({
+      color: "#14d9c4",
+      transparent: true,
+      opacity: 0.06,
+      depthWrite: false,
+    });
+    const linePositions = new Float32Array(particleCount * 6);
+    const lineGeo = new THREE.BufferGeometry();
+    lineGeo.setAttribute("position", new THREE.BufferAttribute(linePositions, 3));
+    lineGeo.setDrawRange(0, 0);
 
-    // --- Mouse tracking ---
+    function updateLines() {
+      const p = particleGeo.attributes.position.array as Float32Array;
+      const maxDist = 5;
+      const conn: number[] = [];
+      for (let i = 0; i < particleCount && conn.length < 6000; i++) {
+        for (let j = i + 1; j < particleCount && conn.length < 6000; j++) {
+          const dx = p[i * 3] - p[j * 3];
+          const dy = p[i * 3 + 1] - p[j * 3 + 1];
+          const dz = p[i * 3 + 2] - p[j * 3 + 2];
+          if (dx * dx + dy * dy + dz * dz < maxDist * maxDist) {
+            conn.push(p[i * 3], p[i * 3 + 1], p[i * 3 + 2], p[j * 3], p[j * 3 + 1], p[j * 3 + 2]);
+          }
+        }
+      }
+      if (conn.length > 0) {
+        lineGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(conn), 3));
+        lineGeo.setDrawRange(0, conn.length / 3);
+      }
+    }
+
+    const particleGeo = pGeo;
+    updateLines();
+    const lineSegments = new THREE.LineSegments(lineGeo, lineMat);
+    scene.add(lineSegments);
+
+    // === MOUSE ===
     const mouse = { x: 0, y: 0 };
     const onMouseMove = (e: MouseEvent) => {
       mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -124,7 +178,7 @@ export default function ParticleNetwork() {
     };
     window.addEventListener("mousemove", onMouseMove);
 
-    // --- Resize ---
+    // === RESIZE ===
     const onResize = () => {
       const w = container.clientWidth;
       const h = container.clientHeight;
@@ -134,74 +188,52 @@ export default function ParticleNetwork() {
     };
     window.addEventListener("resize", onResize);
 
-    // --- Line connections (nearby particles) ---
-    const lineBuffer = new Float32Array(particleCount * 6); // max 2 per particle
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute("position", new THREE.BufferAttribute(lineBuffer, 3));
-    lineGeo.setDrawRange(0, 0);
+    // === TARGET POSITION FOR SMOOTH FOLLOW ===
+    const target = { x: 0, y: 0 };
 
-    const updateLines = () => {
-      const pos = particleGeo.attributes.position.array as Float32Array;
-      const maxDist = 4;
-      const connections: number[] = [];
-
-      for (let i = 0; i < particleCount; i++) {
-        const xi = pos[i * 3];
-        const yi = pos[i * 3 + 1];
-        const zi = pos[i * 3 + 2];
-
-        for (let j = i + 1; j < particleCount; j++) {
-          const dx = xi - pos[j * 3];
-          const dy = yi - pos[j * 3 + 1];
-          const dz = zi - pos[j * 3 + 2];
-          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-          if (dist < maxDist) {
-            connections.push(xi, yi, zi, pos[j * 3], pos[j * 3 + 1], pos[j * 3 + 2]);
-            if (connections.length >= 6000) break; // performance limit
-          }
-        }
-        if (connections.length >= 6000) break;
-      }
-
-      const count = connections.length / 3;
-      if (count > 0) {
-        const buf = new Float32Array(connections);
-        lineGeo.setAttribute("position", new THREE.BufferAttribute(buf, 3));
-        lineGeo.setDrawRange(0, count);
-      }
-    };
-    updateLines();
-
-    const lines = new THREE.LineSegments(lineGeo, linesMat);
-    scene.add(lines);
-
-    // --- Animation ---
+    // === ANIMATION ===
     const clock = new THREE.Clock();
-
     function animate() {
       requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
 
-      // Rotate particles slowly
-      particles.rotation.y = t * 0.015;
-      particles.rotation.x = Math.sin(t * 0.01) * 0.1;
+      // Torus knot rotation
+      knot.rotation.x = t * 0.3;
+      knot.rotation.y = t * 0.5;
+      knotWire.rotation.x = t * 0.35;
+      knotWire.rotation.y = t * 0.55;
+      glowRing.rotation.z = t * 0.1;
 
-      // Animate geometry nodes
-      geometries.forEach((g) => {
-        g.mesh.rotation.x += g.rotSpeed;
-        g.mesh.rotation.y += g.rotSpeed * 1.3;
-        g.mesh.position.y = g.baseY + Math.sin(t * g.floatSpeed) * g.floatAmp;
+      // Pulse glow
+      knotMat.emissiveIntensity = 0.1 + Math.sin(t * 1.5) * 0.08;
+      glowMat.opacity = 0.06 + Math.sin(t * 2) * 0.03;
+
+      // Orbiters
+      orbiters.forEach((o) => {
+        o.angle += o.speed * 0.01;
+        const x = Math.cos(o.angle) * o.radius;
+        const z = Math.sin(o.angle) * o.radius;
+        o.mesh.position.set(x, 0.5 + Math.sin(t * 0.8 + o.radius) * 0.8, z);
+        o.mesh.rotation.x = t * 0.5 + o.angle;
+        o.mesh.rotation.y = t * 0.3 + o.angle;
       });
 
-      // Mouse parallax
-      camera.position.x += (mouse.x * 3 - camera.position.x) * 0.02;
-      camera.position.y += (-mouse.y * 3 - camera.position.y) * 0.02;
-      camera.lookAt(0, 0, 0);
+      // Particles slow rotation
+      particles.rotation.y = t * 0.008;
+      lineSegments.rotation.y = t * 0.008;
+
+      // Mouse parallax smooth follow
+      target.x += (mouse.x * 2 - target.x) * 0.03;
+      target.y += (-mouse.y * 2 - target.y) * 0.03;
+      knot.position.x = target.x * 0.3;
+      knot.position.y = 0.5 + target.y * 0.3;
+      knotWire.position.x = target.x * 0.3;
+      knotWire.position.y = 0.5 + target.y * 0.3;
+      glowRing.position.x = target.x * 0.3;
+      glowRing.position.y = 0.5 + target.y * 0.3;
 
       renderer.render(scene, camera);
     }
-
     animate();
 
     return () => {
@@ -215,7 +247,8 @@ export default function ParticleNetwork() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 z-0"
+      className="absolute inset-0"
+      style={{ zIndex: 2 }}
       aria-hidden="true"
     />
   );
