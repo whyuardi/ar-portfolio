@@ -1,211 +1,184 @@
 'use client';
 
-import { useRef, useMemo } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Environment, Float, MeshDistortMaterial } from '@react-three/drei';
-import { EffectComposer, Bloom, ChromaticAberration } from '@react-three/postprocessing';
-import * as THREE from 'three';
-
-function MainObject({ mouse }: { mouse: THREE.Vector2 }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<any>(null);
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      const t = state.clock.elapsedTime;
-      meshRef.current.rotation.x = t * 0.15 + mouse.y * 0.3;
-      meshRef.current.rotation.y = t * 0.2 + mouse.x * 0.3;
-      meshRef.current.rotation.z = t * 0.05;
-    }
-  });
-
-  return (
-    <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
-      <mesh ref={meshRef} scale={2.2}>
-        <icosahedronGeometry args={[1, 4]} />
-        <MeshDistortMaterial
-          ref={materialRef}
-          color="#14d9c4"
-          envMapIntensity={1.5}
-          clearcoat={1}
-          clearcoatRoughness={0.1}
-          metalness={0.8}
-          roughness={0.15}
-          distort={0.3}
-          speed={1.5}
-          transparent
-          opacity={0.85}
-        />
-      </mesh>
-    </Float>
-  );
-}
-
-function OrbitParticles({ count = 200 }: { count?: number }) {
-  const particlesRef = useRef<THREE.Points>(null);
-
-  const [positions, sizes] = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const siz = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      const radius = 3 + Math.random() * 4;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = radius * Math.cos(phi);
-      siz[i] = Math.random() * 0.03 + 0.01;
-    }
-    return [pos, siz];
-  }, [count]);
-
-  useFrame((state) => {
-    if (particlesRef.current) {
-      particlesRef.current.rotation.y = state.clock.elapsedTime * 0.05;
-      particlesRef.current.rotation.x = state.clock.elapsedTime * 0.03;
-    }
-  });
-
-  return (
-    <points ref={particlesRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          args={[positions, 3]}
-        />
-        <bufferAttribute
-          attach="attributes-size"
-          args={[sizes, 1]}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.03}
-        color="#14d9c4"
-        transparent
-        opacity={0.6}
-        sizeAttenuation
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-      />
-    </points>
-  );
-}
-
-function RingGeometry() {
-  const ringRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (ringRef.current) {
-      const t = state.clock.elapsedTime;
-      ringRef.current.rotation.x = t * 0.1;
-      ringRef.current.rotation.z = t * 0.15;
-    }
-  });
-
-  return (
-    <mesh ref={ringRef} scale={3}>
-      <torusGeometry args={[1, 0.005, 16, 100]} />
-      <meshStandardMaterial
-        color="#7c3aed"
-        emissive="#7c3aed"
-        emissiveIntensity={2}
-        transparent
-        opacity={0.4}
-      />
-    </mesh>
-  );
-}
-
-function InnerRing() {
-  const ringRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (ringRef.current) {
-      const t = state.clock.elapsedTime;
-      ringRef.current.rotation.x = -t * 0.15;
-      ringRef.current.rotation.z = -t * 0.1;
-    }
-  });
-
-  return (
-    <mesh ref={ringRef} scale={2.5}>
-      <torusGeometry args={[1, 0.003, 16, 100]} />
-      <meshStandardMaterial
-        color="#14d9c4"
-        emissive="#14d9c4"
-        emissiveIntensity={1.5}
-        transparent
-        opacity={0.3}
-      />
-    </mesh>
-  );
-}
-
-function Lights() {
-  return (
-    <>
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[5, 5, 5]} intensity={1} color="#ffffff" />
-      <pointLight position={[-5, 3, -5]} intensity={2} color="#14d9c4" distance={15} />
-      <pointLight position={[5, -3, 5]} intensity={1.5} color="#7c3aed" distance={15} />
-      <pointLight position={[0, 5, 0]} intensity={0.5} color="#f0c" distance={10} />
-    </>
-  );
-}
-
-function Scene({ mouse }: { mouse: THREE.Vector2 }) {
-  return (
-    <>
-      <Lights />
-      <MainObject mouse={mouse} />
-      <OrbitParticles count={300} />
-      <RingGeometry />
-      <InnerRing />
-      <Environment preset="city" />
-      <EffectComposer>
-        <Bloom
-          luminanceThreshold={0.2}
-          luminanceSmoothing={0.9}
-          intensity={1.5}
-          mipmapBlur
-        />
-        <ChromaticAberration offset={[0.0005, 0.0005]} />
-      </EffectComposer>
-    </>
-  );
-}
+import { useEffect, useRef } from 'react';
 
 export default function ThreeBackground() {
-  const mouseRef = useRef(new THREE.Vector2(0, 0));
+  const containerRef = useRef<HTMLDivElement>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-  if (typeof window !== 'undefined') {
-    const onMove = (e: MouseEvent) => {
-      mouseRef.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
-      mouseRef.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
+  useEffect(() => {
+    if (!containerRef.current || cleanupRef.current) return;
+
+    let cancelled = false;
+
+    const init = async () => {
+      const THREE = await import('three');
+      const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+      const { EffectComposer } = await import('three/addons/postprocessing/EffectComposer.js');
+      const { RenderPass } = await import('three/addons/postprocessing/RenderPass.js');
+      const { UnrealBloomPass } = await import('three/addons/postprocessing/UnrealBloomPass.js');
+
+      if (cancelled || !containerRef.current) return;
+
+      const container = containerRef.current;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      // Scene
+      const scene = new THREE.Scene();
+
+      // Camera
+      const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
+      camera.position.set(0, 0, 5);
+
+      // Renderer
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(w, h);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      container.appendChild(renderer.domElement);
+
+      // Bloom
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      const bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.8, 0.4, 0.85);
+      composer.addPass(bloomPass);
+
+      // Lights
+      scene.add(new THREE.AmbientLight(0x404060, 0.5));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      dirLight.position.set(3, 5, 4);
+      scene.add(dirLight);
+      const pLight1 = new THREE.PointLight(0x14d9c4, 3, 10);
+      pLight1.position.set(-3, 2, 2);
+      scene.add(pLight1);
+      const pLight2 = new THREE.PointLight(0x7c3aed, 2, 10);
+      pLight2.position.set(3, -2, -2);
+      scene.add(pLight2);
+
+      // Main object: Torus Knot
+      const geo = new THREE.TorusKnotGeometry(1, 0.35, 200, 32, 2, 3);
+      const mat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        metalness: 0.9,
+        roughness: 0.05,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.05,
+        envMapIntensity: 1.5,
+        emissive: 0x14d9c4,
+        emissiveIntensity: 0.15,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      scene.add(mesh);
+
+      // Orbit ring 1
+      const ringGeo = new THREE.TorusGeometry(2, 0.008, 16, 200);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x14d9c4, transparent: true, opacity: 0.5 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI * 0.4;
+      scene.add(ring);
+
+      // Orbit ring 2
+      const ring2Geo = new THREE.TorusGeometry(2.5, 0.005, 16, 200);
+      const ring2Mat = new THREE.MeshBasicMaterial({ color: 0x7c3aed, transparent: true, opacity: 0.3 });
+      const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
+      ring2.rotation.x = -Math.PI * 0.3;
+      ring2.rotation.y = Math.PI * 0.2;
+      scene.add(ring2);
+
+      // Particles
+      const pCount = 300;
+      const pPos = new Float32Array(pCount * 3);
+      for (let i = 0; i < pCount; i++) {
+        const r = 3 + Math.random() * 4;
+        const t = Math.random() * Math.PI * 2;
+        const p = Math.acos(2 * Math.random() - 1);
+        pPos[i * 3] = r * Math.sin(p) * Math.cos(t);
+        pPos[i * 3 + 1] = r * Math.sin(p) * Math.sin(t);
+        pPos[i * 3 + 2] = r * Math.cos(p);
+      }
+      const pGeo = new THREE.BufferGeometry();
+      pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+      const pMat = new THREE.PointsMaterial({
+        size: 0.02,
+        color: 0x14d9c4,
+        transparent: true,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      scene.add(new THREE.Points(pGeo, pMat));
+
+      // Mouse tracking
+      let mx = 0, my = 0;
+      const onMouseMove = (e: MouseEvent) => {
+        mx = (e.clientX / window.innerWidth - 0.5) * 2;
+        my = (e.clientY / window.innerHeight - 0.5) * 2;
+      };
+      window.addEventListener('mousemove', onMouseMove);
+
+      // Scroll tracking
+      let scrollProgress = 0;
+      const onScroll = () => {
+        scrollProgress = window.scrollY / (document.body.scrollHeight - window.innerHeight || 1);
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      // Animate
+      let frameId: number;
+      const animate = () => {
+        frameId = requestAnimationFrame(animate);
+        const t = performance.now() * 0.001;
+
+        mesh.rotation.x = t * 0.2 + my * 0.3;
+        mesh.rotation.y = t * 0.3 + mx * 0.3;
+
+        // Zoom out slightly as user scrolls
+        camera.position.z = 5 + scrollProgress * 2;
+
+        ring.rotation.z = t * 0.1;
+        ring2.rotation.z = -t * 0.08;
+
+        composer.render();
+      };
+      animate();
+
+      // Resize
+      const onResize = () => {
+        const w2 = window.innerWidth;
+        const h2 = window.innerHeight;
+        camera.aspect = w2 / h2;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w2, h2);
+        composer.setSize(w2, h2);
+      };
+      window.addEventListener('resize', onResize);
+
+      cleanupRef.current = () => {
+        cancelAnimationFrame(frameId);
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('scroll', onScroll);
+        window.removeEventListener('resize', onResize);
+        renderer.dispose();
+        container.removeChild(renderer.domElement);
+      };
     };
-    // Only attach once
-    if (!(window as any).__threeMouseAttached) {
-      window.addEventListener('mousemove', onMove);
-      (window as any).__threeMouseAttached = true;
-    }
-  }
+
+    init();
+
+    return () => {
+      cancelled = true;
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+    };
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-0 pointer-events-none">
-      <Canvas
-        camera={{ position: [0, 0, 6], fov: 45 }}
-        gl={{
-          antialias: true,
-          alpha: true,
-          powerPreference: 'high-performance',
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.2,
-        }}
-        dpr={[1, 1.5]}
-        style={{ background: 'transparent' }}
-      >
-        <Scene mouse={mouseRef.current} />
-      </Canvas>
-    </div>
+    <div
+      ref={containerRef}
+      className="fixed inset-0 z-0 pointer-events-none"
+      style={{ background: '#0a0a0f' }}
+    />
   );
 }
