@@ -13,6 +13,35 @@ const ChromaShader = {
   fragmentShader: `uniform sampler2D tDiffuse;uniform float amount;varying vec2 vUv;void main(){vec2 o=amount*(vUv-.5);gl_FragColor=vec4(texture2D(tDiffuse,vUv+o).r,texture2D(tDiffuse,vUv).g,texture2D(tDiffuse,vUv-o).b,1.);}`,
 };
 
+// ─── CUSTOM MORUS TOPOLOGY (twisted torus variant) ───
+function createMorus(p: number, q: number, R: number, r: number, seg: number) {
+  const geo = new THREE.BufferGeometry();
+  const v: number[] = [];
+  const idx: number[] = [];
+  for (let i = 0; i <= seg; i++) {
+    const u = (i / seg) * Math.PI * 2;
+    for (let j = 0; j <= seg; j++) {
+      const t = (j / seg) * Math.PI * 2;
+      v.push(
+        (R + r * Math.cos(q * t)) * Math.cos(p * u),
+        (R + r * Math.cos(q * t)) * Math.sin(p * u),
+        r * Math.sin(q * t)
+      );
+    }
+  }
+  for (let i = 0; i < seg; i++) {
+    for (let j = 0; j < seg; j++) {
+      const a = i * (seg + 1) + j;
+      const b = a + seg + 1;
+      idx.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 export default function FullCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<number>(0);
@@ -22,10 +51,10 @@ export default function FullCanvas() {
     if (!container) return;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0a0a0f, 0.006);
+    scene.fog = new THREE.FogExp2(0x0a0a0f, 0.005);
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
-    camera.position.set(0, 0, 25);
+    camera.position.set(0, 0, 28);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -35,39 +64,38 @@ export default function FullCanvas() {
     renderer.toneMappingExposure = 1.8;
     container.appendChild(renderer.domElement);
 
-    // ─── POST-PROCESSING ───
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.4, 0.7, 0.45);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.3, 0.6, 0.5);
     composer.addPass(bloom);
     const chroma = new ShaderPass(ChromaShader);
     composer.addPass(chroma);
 
-    // ─── MAIN: LARGE ICOSAHEDRON (everswap style — dominant center piece) ───
-    const mainGeo = new THREE.IcosahedronGeometry(4.5, 2);
-    const mainMat = new THREE.MeshPhysicalMaterial({
+    // ─── MAIN: MORUS TOPOLOGY (twisted torus — completely unique shape) ───
+    const morusGeo = createMorus(2, 3, 2.0, 0.7, 100);
+    const morusMat = new THREE.MeshPhysicalMaterial({
       color: "#14d9c4", metalness: 0.0, roughness: 0.0,
-      transmission: 0.95, thickness: 4.0, clearcoat: 1.0,
+      transmission: 0.92, thickness: 3.0, clearcoat: 1.0,
       clearcoatRoughness: 0.0, ior: 2.5, transparent: true,
-      opacity: 0.9, emissive: "#14d9c4", emissiveIntensity: 0.3,
+      opacity: 0.85, emissive: "#14d9c4", emissiveIntensity: 0.3,
       side: THREE.DoubleSide,
     });
-    const mainMesh = new THREE.Mesh(mainGeo, mainMat);
-    scene.add(mainMesh);
+    const morusMesh = new THREE.Mesh(morusGeo, morusMat);
+    scene.add(morusMesh);
 
-    // ─── WIREFRAME SHELL ───
-    const wireGeo = new THREE.IcosahedronGeometry(5.2, 0);
-    const wireMat = new THREE.MeshBasicMaterial({ color: "#14d9c4", wireframe: true, transparent: true, opacity: 0.025 });
-    const wireMesh = new THREE.Mesh(wireGeo, wireMat);
-    scene.add(wireMesh);
+    // Wireframe shell
+    const morusWireGeo = createMorus(2, 3, 2.4, 0.85, 50);
+    const morusWireMat = new THREE.MeshBasicMaterial({ color: "#14d9c4", wireframe: true, transparent: true, opacity: 0.03 });
+    const morusWire = new THREE.Mesh(morusWireGeo, morusWireMat);
+    scene.add(morusWire);
 
-    // ─── INNER GLOW ───
-    const coreGeo = new THREE.SphereGeometry(1.0, 32, 32);
-    const coreMat = new THREE.MeshBasicMaterial({ color: "#14d9c4", transparent: true, opacity: 0.25 });
+    // Inner core
+    const coreGeo = new THREE.IcosahedronGeometry(0.6, 3);
+    const coreMat = new THREE.MeshBasicMaterial({ color: "#14d9c4", transparent: true, opacity: 0.3 });
     const coreMesh = new THREE.Mesh(coreGeo, coreMat);
     scene.add(coreMesh);
 
-    // ─── 2 ORBITING SHAPES (minimal, clean — everswap style) ───
+    // ─── 2 ORBITERS ───
     const orb1Geo = new THREE.OctahedronGeometry(0.7, 0);
     const orb1Mat = new THREE.MeshPhysicalMaterial({
       color: "#a855f7", metalness: 0.0, roughness: 0.0,
@@ -88,7 +116,7 @@ export default function FullCanvas() {
     const orb2 = new THREE.Mesh(orb2Geo, orb2Mat);
     scene.add(orb2);
 
-    // ─── 2 RINGS (clean, everswap style) ───
+    // ─── 2 RINGS ───
     const ring1Geo = new THREE.TorusGeometry(6, 0.01, 16, 250);
     const ring1Mat = new THREE.MeshBasicMaterial({ color: "#14d9c4", transparent: true, opacity: 0.12, depthWrite: false });
     const ring1 = new THREE.Mesh(ring1Geo, ring1Mat);
@@ -99,7 +127,7 @@ export default function FullCanvas() {
     const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
     scene.add(ring2);
 
-    // ─── PARTICLES (subtle, everswap style) ───
+    // ─── PARTICLES ───
     const isMobile = window.innerWidth < 768;
     const pCount = isMobile ? 300 : 600;
     const pPos = new Float32Array(pCount * 3);
@@ -127,7 +155,7 @@ export default function FullCanvas() {
     const particles = new THREE.Points(pGeo, pMat);
     scene.add(particles);
 
-    // ─── SCROLL ───
+    // ─── SCROLL + MOUSE ───
     let scroll = 0;
     let scrollTarget = 0;
     const onScroll = () => {
@@ -136,7 +164,6 @@ export default function FullCanvas() {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
 
-    // ─── MOUSE (STRONG parallax — everswap style) ───
     const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
     const onMouseMove = (e: MouseEvent) => {
       mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
@@ -153,59 +180,48 @@ export default function FullCanvas() {
     };
     window.addEventListener("resize", onResize);
 
-    // ─── ANIMATION ───
     const clock = new THREE.Clock();
 
     function animate() {
       frameRef.current = requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
 
-      // Smooth scroll
       scroll += (scrollTarget - scroll) * 0.05;
-      // Smooth mouse
       mouse.x += (mouse.tx - mouse.x) * 0.04;
       mouse.y += (mouse.ty - mouse.y) * 0.04;
 
-      // ─── CAMERA: dramatic scroll + STRONG mouse parallax ───
-      camera.position.x = mouse.x * 5; // STRONG horizontal parallax
-      camera.position.y = mouse.y * 3.5 - scroll * 10; // STRONG vertical parallax + scroll
-      camera.position.z = 25 - scroll * 10; // Zoom in on scroll
+      // Camera
+      camera.position.x = mouse.x * 5;
+      camera.position.y = mouse.y * 3.5 - scroll * 10;
+      camera.position.z = 28 - scroll * 12;
       camera.lookAt(0, -scroll * 10, 0);
-
-      // Chromatic aberration increases with scroll
       chroma.uniforms.amount.value = 0.0015 + scroll * 0.005;
 
-      // ─── MAIN ICOSAHEDRON: everswap-style dramatic response ───
-      const rotSpeed = 0.1 + scroll * 0.2;
-      mainMesh.rotation.x = t * rotSpeed + scroll * 2.5;
-      mainMesh.rotation.y = t * (rotSpeed + 0.1) + scroll * 2;
-      mainMesh.rotation.z = t * 0.05;
-
-      // Scale: huge on hero → smaller on scroll
+      // Main morus
+      const rotSpeed = 0.12 + scroll * 0.2;
+      morusMesh.rotation.x = t * rotSpeed + scroll * 2;
+      morusMesh.rotation.y = t * (rotSpeed + 0.08) + scroll * 1.5;
+      morusMesh.rotation.z = t * 0.05;
       const targetScale = 1.0 - scroll * 0.5;
-      mainMesh.scale.setScalar(THREE.MathUtils.lerp(mainMesh.scale.x, targetScale, 0.06));
+      morusMesh.scale.setScalar(THREE.MathUtils.lerp(morusMesh.scale.x, targetScale, 0.06));
+      morusMesh.position.x = mouse.x * 3.5;
+      morusMesh.position.y = mouse.y * 2.5 - scroll * 8;
+      morusMesh.position.z = -scroll * 3;
+      morusMat.emissiveIntensity = 0.25 + Math.sin(t * 2) * 0.15 + scroll * 0.25;
 
-      // Position: STRONG mouse follow
-      mainMesh.position.x = mouse.x * 3.5;
-      mainMesh.position.y = mouse.y * 2.5 - scroll * 8;
-      mainMesh.position.z = -scroll * 3;
+      // Wire
+      morusWire.rotation.x = -t * (rotSpeed * 0.5);
+      morusWire.rotation.y = t * (rotSpeed * 0.7);
+      morusWire.scale.setScalar(THREE.MathUtils.lerp(morusWire.scale.x, targetScale * 1.15, 0.06));
+      morusWire.position.copy(morusMesh.position);
 
-      // Emissive pulse
-      mainMat.emissiveIntensity = 0.25 + Math.sin(t * 2) * 0.15 + scroll * 0.25;
-
-      // ─── WIREFRAME: counter-rotate ───
-      wireMesh.rotation.x = -t * (rotSpeed * 0.4);
-      wireMesh.rotation.y = t * (rotSpeed * 0.6);
-      wireMesh.scale.setScalar(THREE.MathUtils.lerp(wireMesh.scale.x, targetScale * 1.15, 0.06));
-      wireMesh.position.copy(mainMesh.position);
-
-      // ─── CORE: breathing ───
+      // Core
       const corePulse = 1 + Math.sin(t * 3) * 0.2;
       coreMesh.scale.setScalar(corePulse * targetScale * 0.7);
-      coreMesh.position.copy(mainMesh.position);
+      coreMesh.position.copy(morusMesh.position);
       coreMat.opacity = 0.2 + Math.sin(t * 2) * 0.15;
 
-      // ─── ORBITERS: circle around main ───
+      // Orbiters
       const orbAngle1 = t * 0.35;
       orb1.position.x = Math.cos(orbAngle1) * 6 + mouse.x * 2.5;
       orb1.position.y = Math.sin(orbAngle1 * 0.7) * 4 + mouse.y * 1.8 - scroll * 6;
@@ -224,18 +240,18 @@ export default function FullCanvas() {
       orb2.scale.setScalar(THREE.MathUtils.lerp(1, 0.4, scroll));
       orb2Mat.opacity = 0.8 * (1 - scroll * 0.6);
 
-      // ─── RINGS: rotate + scale ───
+      // Rings
       ring1.rotation.x = t * 0.18;
       ring1.rotation.y = t * 0.12;
-      ring1.position.copy(mainMesh.position);
+      ring1.position.copy(morusMesh.position);
       ring1.scale.setScalar(THREE.MathUtils.lerp(1, 2.2, scroll));
 
       ring2.rotation.x = -t * 0.12;
       ring2.rotation.z = t * 0.08;
-      ring2.position.copy(mainMesh.position);
+      ring2.position.copy(morusMesh.position);
       ring2.scale.setScalar(THREE.MathUtils.lerp(1, 2.2, scroll));
 
-      // ─── PARTICLES ───
+      // Particles
       const pArr = pGeo.attributes.position.array as Float32Array;
       for (let i = 0; i < pCount; i++) {
         const i3 = i * 3;
