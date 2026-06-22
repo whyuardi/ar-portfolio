@@ -1,10 +1,12 @@
 import type { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [{
-    url: 'https://ar-portfolio-dusky.vercel.app',
-    lastModified: new Date(),
-    changeFrequency: 'monthly',
-    priority: 1,
-  }];
+  return [
+    {
+      url: 'https://ar-portfolio-dusky.vercel.app',
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 1,
+    },
+  ];
 }

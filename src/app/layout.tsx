@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
-import { GeistSans, GeistMono } from "geist/font";
+import localFont from "next/font/local";
 import "./globals.css";
+
+const geistSans = localFont({
+  src: "./fonts/GeistVF.woff2",
+  variable: "--font-geist-sans",
+  display: "swap",
+});
+const geistMono = localFont({
+  src: "./fonts/GeistMonoVF.woff2",
+  variable: "--font-geist-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Ar | Portfolio",
   description: "Web3 builder, automation engineer, and full-stack developer based in Yogyakarta.",
   authors: [{ name: "Ar" }],
-  keywords: ["Ardhiansyah", "Mobile Developer", "IT Support", "Portfolio"],
+  keywords: ["Ardhiansyah Wahyu Setyadi", "Mobile Developer", "IT Support", "Portfolio", "Web3"],
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
@@ -26,7 +37,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} dark`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`}>
       <body className="antialiased bg-bg text-text">
         {children}
       </body>

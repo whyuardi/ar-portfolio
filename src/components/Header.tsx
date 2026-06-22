@@ -125,6 +125,13 @@ export default function Header() {
               <LinkedinLogo size={16} weight="duotone" />
             </a>
           </div>
+          <a
+            href="#contact"
+            onClick={() => setMobileOpen(false)}
+            className="mt-4 mx-4 py-3 rounded-lg bg-accent text-bg text-sm font-semibold text-center hover:bg-accent-dim transition-colors"
+          >
+            Connect Wallet
+          </a>
         </nav>
       </div>
     </header>
