@@ -14,7 +14,7 @@ import {
 } from "@phosphor-icons/react";
 
 const Preloader = dynamic(() => import("@/components/Preloader"), { ssr: false });
-const FullCanvas = dynamic(() => import("@/components/FullCanvas"), { ssr: false });
+const ThreeBackground = dynamic(() => import("@/components/ThreeBackground"), { ssr: false });
 const MinimalHeader = dynamic(() => import("@/components/MinimalHeader"), { ssr: false });
 const ScrollDots = dynamic(() => import("@/components/ScrollDots"), { ssr: false });
 const ScrollIndicator = dynamic(() => import("@/components/ScrollIndicator"), { ssr: false });
@@ -141,7 +141,7 @@ export default function Home() {
   return (
     <>
       <Preloader />
-      <FullCanvas />
+      <ThreeBackground />
       <MinimalHeader />
       <ScrollDots />
       <ScrollIndicator />
