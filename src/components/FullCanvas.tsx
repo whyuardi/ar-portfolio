@@ -5,6 +5,28 @@ import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+
+// Chromatic aberration shader for premium feel
+const ChromaticAberrationShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    amount: { value: 0.002 },
+  },
+  vertexShader: `varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float amount;
+    varying vec2 vUv;
+    void main(){
+      vec2 offset=amount*(vUv-0.5);
+      float r=texture2D(tDiffuse,vUv+offset).r;
+      float g=texture2D(tDiffuse,vUv).g;
+      float b=texture2D(tDiffuse,vUv-offset).b;
+      gl_FragColor=vec4(r,g,b,1.0);
+    }
+  `,
+};
 
 export default function FullCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -16,13 +38,15 @@ export default function FullCanvas() {
 
     // ─── SCENE ───
     const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0a0a0f, 0.015);
+
     const camera = new THREE.PerspectiveCamera(
-      55,
+      50,
       window.innerWidth / window.innerHeight,
       0.1,
       200
     );
-    camera.position.set(0, 0, 20);
+    camera.position.set(0, 0, 22);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -33,64 +57,114 @@ export default function FullCanvas() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.3;
+    renderer.toneMappingExposure = 1.4;
     container.appendChild(renderer.domElement);
 
-    // ─── BLOOM ───
+    // ─── POST-PROCESSING ───
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
+
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.7,
-      0.3,
-      0.85
+      0.9,  // strength — more glow
+      0.5,  // radius
+      0.7   // threshold — lower = more things bloom
     );
     composer.addPass(bloom);
 
-    // ─── MAIN OBJECT: TORUS KNOT (everswap-style prominent center piece) ───
-    const knotGeo = new THREE.TorusKnotGeometry(1.8, 0.55, 128, 16);
-    const knotMat = new THREE.MeshPhysicalMaterial({
-      color: "#14d9c4",
-      metalness: 0.95,
-      roughness: 0.05,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.02,
-      transparent: true,
-      opacity: 0.8,
-      emissive: "#14d9c4",
-      emissiveIntensity: 0.2,
-    });
-    const knot = new THREE.Mesh(knotGeo, knotMat);
-    scene.add(knot);
+    const chroma = new ShaderPass(ChromaticAberrationShader);
+    composer.addPass(chroma);
 
-    // Wireframe shell
-    const wireGeo = new THREE.TorusKnotGeometry(2.2, 0.65, 48, 8);
+    // ─── ENVIRONMENT MAP (fake reflection) ───
+    const envScene = new THREE.Scene();
+    const envGeo = new THREE.SphereGeometry(50, 32, 32);
+    const envMat = new THREE.MeshBasicMaterial({
+      side: THREE.BackSide,
+      color: 0x111122,
+    });
+    envScene.add(new THREE.Mesh(envGeo, envMat));
+    const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256);
+    const cubeCamera = new THREE.CubeCamera(1, 100, cubeRenderTarget);
+    cubeCamera.position.set(0, 0, 0);
+
+    // ─── MAIN: GLASS ICOSAHEDRON ───
+    const mainGeo = new THREE.IcosahedronGeometry(2.2, 2);
+    const mainMat = new THREE.MeshPhysicalMaterial({
+      color: "#14d9c4",
+      metalness: 0.1,
+      roughness: 0.0,
+      transmission: 0.9,
+      thickness: 1.5,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.0,
+      ior: 2.33,
+      transparent: true,
+      opacity: 0.9,
+      emissive: "#14d9c4",
+      emissiveIntensity: 0.3,
+      envMap: cubeRenderTarget.texture,
+      envMapIntensity: 2.0,
+      side: THREE.DoubleSide,
+    });
+    const mainMesh = new THREE.Mesh(mainGeo, mainMat);
+    scene.add(mainMesh);
+
+    // ─── WIREFRAME SHELL ───
+    const wireGeo = new THREE.IcosahedronGeometry(2.8, 0);
     const wireMat = new THREE.MeshBasicMaterial({
-      color: "#6ee7d6",
+      color: "#14d9c4",
       wireframe: true,
       transparent: true,
-      opacity: 0.06,
+      opacity: 0.04,
     });
     const wireMesh = new THREE.Mesh(wireGeo, wireMat);
     scene.add(wireMesh);
 
-    // ─── SECONDARY: ICOSAHEDRON (smaller, orbiting close) ───
-    const icoGeo = new THREE.IcosahedronGeometry(0.9, 1);
-    const icoMat = new THREE.MeshPhysicalMaterial({
-      color: "#a855f7",
-      metalness: 0.9,
-      roughness: 0.08,
-      clearcoat: 0.8,
+    // ─── INNER CORE: glowing sphere ───
+    const coreGeo = new THREE.SphereGeometry(0.6, 32, 32);
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: "#14d9c4",
       transparent: true,
-      opacity: 0.7,
-      emissive: "#a855f7",
-      emissiveIntensity: 0.15,
+      opacity: 0.4,
     });
-    const ico = new THREE.Mesh(icoGeo, icoMat);
-    scene.add(ico);
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    scene.add(coreMesh);
 
-    // ─── FLOATING SHAPES (scattered around) ───
-    type FloatingShape = {
+    // ─── SECONDARY: DODECAHEDRON ───
+    const dodecaGeo = new THREE.DodecahedronGeometry(1.0, 1);
+    const dodecaMat = new THREE.MeshPhysicalMaterial({
+      color: "#a855f7",
+      metalness: 0.15,
+      roughness: 0.0,
+      transmission: 0.85,
+      thickness: 1.0,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.0,
+      ior: 2.0,
+      transparent: true,
+      opacity: 0.8,
+      emissive: "#a855f7",
+      emissiveIntensity: 0.25,
+      envMap: cubeRenderTarget.texture,
+      envMapIntensity: 1.5,
+      side: THREE.DoubleSide,
+    });
+    const dodecaMesh = new THREE.Mesh(dodecaGeo, dodecaMat);
+    scene.add(dodecaMesh);
+
+    // Dodeca wireframe
+    const dodecaWireGeo = new THREE.DodecahedronGeometry(1.3, 0);
+    const dodecaWireMat = new THREE.MeshBasicMaterial({
+      color: "#a855f7",
+      wireframe: true,
+      transparent: true,
+      opacity: 0.04,
+    });
+    const dodecaWire = new THREE.Mesh(dodecaWireGeo, dodecaWireMat);
+    scene.add(dodecaWire);
+
+    // ─── FLOATING SHAPES ───
+    type Floater = {
       mesh: THREE.Mesh;
       wire: THREE.Mesh;
       basePos: THREE.Vector3;
@@ -98,30 +172,39 @@ export default function FullCanvas() {
       orbitSpeed: number;
       rotSpeed: THREE.Vector3;
       phase: number;
+      color: string;
     };
 
-    const floaters: FloatingShape[] = [];
+    const floaters: Floater[] = [];
     const floaterConfigs = [
-      { geo: new THREE.OctahedronGeometry(0.35), color: "#f59e0b", pos: [4, 2, -3], radius: 2, speed: 0.4 },
-      { geo: new THREE.DodecahedronGeometry(0.3), color: "#ef4444", pos: [-5, -1, -2], radius: 1.5, speed: -0.35 },
-      { geo: new THREE.TetrahedronGeometry(0.4), color: "#06b6d4", pos: [3, -3, -4], radius: 1.8, speed: 0.3 },
-      { geo: new THREE.OctahedronGeometry(0.25), color: "#10b981", pos: [-4, 3, -5], radius: 2.2, speed: -0.25 },
-      { geo: new THREE.IcosahedronGeometry(0.3), color: "#ec4899", pos: [6, 0, -6], radius: 1.2, speed: 0.45 },
-      { geo: new THREE.TetrahedronGeometry(0.2), color: "#8b5cf6", pos: [-3, -4, -3], radius: 1.6, speed: -0.4 },
-      { geo: new THREE.DodecahedronGeometry(0.25), color: "#f97316", pos: [0, 5, -7], radius: 2.5, speed: 0.2 },
-      { geo: new THREE.OctahedronGeometry(0.2), color: "#06b6d4", pos: [-6, -2, -8], radius: 1.8, speed: -0.3 },
+      { geo: new THREE.OctahedronGeometry(0.4, 0), color: "#f59e0b", pos: [5, 3, -4], radius: 2.5, speed: 0.4 },
+      { geo: new THREE.TetrahedronGeometry(0.45, 0), color: "#ef4444", pos: [-6, -1, -3], radius: 2.0, speed: -0.35 },
+      { geo: new THREE.IcosahedronGeometry(0.3, 0), color: "#06b6d4", pos: [4, -3, -5], radius: 2.2, speed: 0.3 },
+      { geo: new THREE.OctahedronGeometry(0.3, 0), color: "#10b981", pos: [-5, 4, -6], radius: 2.8, speed: -0.25 },
+      { geo: new THREE.DodecahedronGeometry(0.35, 0), color: "#ec4899", pos: [7, 0, -7], radius: 1.8, speed: 0.45 },
+      { geo: new THREE.TetrahedronGeometry(0.25, 0), color: "#8b5cf6", pos: [-4, -5, -4], radius: 2.0, speed: -0.4 },
+      { geo: new THREE.OctahedronGeometry(0.2, 0), color: "#f97316", pos: [1, 6, -8], radius: 3.0, speed: 0.2 },
+      { geo: new THREE.IcosahedronGeometry(0.25, 0), color: "#06b6d4", pos: [-7, -3, -9], radius: 2.5, speed: -0.3 },
+      { geo: new THREE.TetrahedronGeometry(0.2, 0), color: "#a855f7", pos: [3, -5, -10], radius: 1.5, speed: 0.5 },
+      { geo: new THREE.DodecahedronGeometry(0.15, 0), color: "#14d9c4", pos: [-2, 5, -11], radius: 2.0, speed: -0.2 },
     ];
 
     floaterConfigs.forEach((cfg) => {
       const mat = new THREE.MeshPhysicalMaterial({
         color: cfg.color,
-        metalness: 0.85,
-        roughness: 0.1,
-        clearcoat: 0.6,
+        metalness: 0.1,
+        roughness: 0.0,
+        transmission: 0.7,
+        thickness: 0.5,
+        clearcoat: 0.8,
+        clearcoatRoughness: 0.0,
         transparent: true,
         opacity: 0.6,
         emissive: cfg.color,
-        emissiveIntensity: 0.12,
+        emissiveIntensity: 0.15,
+        envMap: cubeRenderTarget.texture,
+        envMapIntensity: 1.0,
+        side: THREE.DoubleSide,
       });
       const mesh = new THREE.Mesh(cfg.geo, mat);
       scene.add(mesh);
@@ -130,7 +213,7 @@ export default function FullCanvas() {
         color: cfg.color,
         wireframe: true,
         transparent: true,
-        opacity: 0.06,
+        opacity: 0.04,
       });
       const wMesh = new THREE.Mesh(cfg.geo.clone(), wMat);
       scene.add(wMesh);
@@ -142,23 +225,26 @@ export default function FullCanvas() {
         orbitRadius: cfg.radius,
         orbitSpeed: cfg.speed,
         rotSpeed: new THREE.Vector3(
-          0.2 + Math.random() * 0.3,
-          0.15 + Math.random() * 0.25,
-          0.1 + Math.random() * 0.2
+          0.15 + Math.random() * 0.3,
+          0.1 + Math.random() * 0.25,
+          0.08 + Math.random() * 0.2
         ),
         phase: Math.random() * Math.PI * 2,
+        color: cfg.color,
       });
     });
 
-    // ─── ENERGY RINGS ───
-    const rings: { mesh: THREE.Mesh; speed: number; axis: "x" | "y" | "z" }[] = [];
+    // ─── ENERGY RINGS (multiple, different sizes) ───
+    const rings: { mesh: THREE.Mesh; speed: number; axis: "x" | "y" | "z"; baseRadius: number }[] = [];
     const ringConfigs = [
-      { radius: 3.2, tube: 0.012, color: "#14d9c4", speed: 0.35, opacity: 0.18, axis: "x" as const },
-      { radius: 3.8, tube: 0.01, color: "#a855f7", speed: -0.25, opacity: 0.12, axis: "y" as const },
-      { radius: 3.5, tube: 0.011, color: "#f59e0b", speed: 0.2, opacity: 0.1, axis: "z" as const },
+      { radius: 3.5, tube: 0.015, color: "#14d9c4", speed: 0.35, opacity: 0.2, axis: "x" as const },
+      { radius: 4.2, tube: 0.012, color: "#a855f7", speed: -0.25, opacity: 0.14, axis: "y" as const },
+      { radius: 3.8, tube: 0.013, color: "#f59e0b", speed: 0.2, opacity: 0.12, axis: "z" as const },
+      { radius: 5.0, tube: 0.008, color: "#06b6d4", speed: -0.15, opacity: 0.08, axis: "x" as const },
+      { radius: 4.6, tube: 0.009, color: "#ec4899", speed: 0.18, opacity: 0.06, axis: "y" as const },
     ];
     ringConfigs.forEach((cfg) => {
-      const geo = new THREE.TorusGeometry(cfg.radius, cfg.tube, 16, 120);
+      const geo = new THREE.TorusGeometry(cfg.radius, cfg.tube, 16, 150);
       const mat = new THREE.MeshBasicMaterial({
         color: cfg.color,
         transparent: true,
@@ -167,56 +253,85 @@ export default function FullCanvas() {
       });
       const mesh = new THREE.Mesh(geo, mat);
       scene.add(mesh);
-      rings.push({ mesh, speed: cfg.speed, axis: cfg.axis });
+      rings.push({ mesh, speed: cfg.speed, axis: cfg.axis, baseRadius: cfg.radius });
     });
 
-    // ─── PARTICLES ───
+    // ─── PARTICLES (spiral + flow) ───
     const isMobile = window.innerWidth < 768;
-    const particleCount = isMobile ? 500 : 1000;
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
+    const particleCount = isMobile ? 600 : 1200;
+    const pPositions = new Float32Array(particleCount * 3);
+    const pColors = new Float32Array(particleCount * 3);
+    const pSizes = new Float32Array(particleCount);
+    const pVelocities = new Float32Array(particleCount * 3);
     const palette = [
       new THREE.Color("#14d9c4"),
       new THREE.Color("#a855f7"),
       new THREE.Color("#f59e0b"),
       new THREE.Color("#06b6d4"),
+      new THREE.Color("#ec4899"),
     ];
 
     for (let i = 0; i < particleCount; i++) {
       const i3 = i * 3;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const r = 6 + Math.random() * 20;
-      positions[i3] = r * Math.sin(phi) * Math.cos(theta);
-      positions[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      positions[i3 + 2] = r * Math.cos(phi);
+      // Spiral distribution
+      const t = i / particleCount;
+      const angle = t * Math.PI * 8 + Math.random() * 0.5;
+      const radius = 3 + t * 15;
+      pPositions[i3] = Math.cos(angle) * radius;
+      pPositions[i3 + 1] = (Math.random() - 0.5) * radius * 0.6;
+      pPositions[i3 + 2] = Math.sin(angle) * radius - 5;
+
       const c = palette[Math.floor(Math.random() * palette.length)];
-      colors[i3] = c.r;
-      colors[i3 + 1] = c.g;
-      colors[i3 + 2] = c.b;
+      pColors[i3] = c.r;
+      pColors[i3 + 1] = c.g;
+      pColors[i3 + 2] = c.b;
+
+      pSizes[i] = 0.04 + Math.random() * 0.08;
+
+      // Initial velocities for flowing effect
+      pVelocities[i3] = (Math.random() - 0.5) * 0.01;
+      pVelocities[i3 + 1] = (Math.random() - 0.5) * 0.01;
+      pVelocities[i3 + 2] = (Math.random() - 0.5) * 0.005;
     }
 
     const pGeo = new THREE.BufferGeometry();
-    pGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    pGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    pGeo.setAttribute("position", new THREE.BufferAttribute(pPositions, 3));
+    pGeo.setAttribute("color", new THREE.BufferAttribute(pColors, 3));
 
     const pMat = new THREE.PointsMaterial({
-      size: 0.07,
+      size: 0.08,
       vertexColors: true,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.5,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       sizeAttenuation: true,
     });
-    const particles = new THREE.Points(pGeo, pMat);
-    scene.add(particles);
+    const particleSystem = new THREE.Points(pGeo, pMat);
+    scene.add(particleSystem);
 
-    // ─── MOUSE TRACKING ───
-    const mouse = { x: 0, y: 0, targetX: 0, targetY: 0 };
+    // ─── LIGHT RAYS (subtle directional) ───
+    const lightGeo = new THREE.ConeGeometry(0.02, 20, 4);
+    const lightMat = new THREE.MeshBasicMaterial({
+      color: "#14d9c4",
+      transparent: true,
+      opacity: 0.03,
+      depthWrite: false,
+    });
+    const lightRays: THREE.Mesh[] = [];
+    for (let i = 0; i < 6; i++) {
+      const ray = new THREE.Mesh(lightGeo, lightMat.clone());
+      ray.rotation.z = (i / 6) * Math.PI;
+      ray.position.set(0, 0, -5);
+      scene.add(ray);
+      lightRays.push(ray);
+    }
+
+    // ─── MOUSE ───
+    const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
     const onMouseMove = (e: MouseEvent) => {
-      mouse.targetX = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.targetY = -(e.clientY / window.innerHeight) * 2 + 1;
+      mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.ty = -(e.clientY / window.innerHeight) * 2 + 1;
     };
     window.addEventListener("mousemove", onMouseMove, { passive: true });
 
@@ -224,8 +339,8 @@ export default function FullCanvas() {
     let scrollProgress = 0;
     let scrollTarget = 0;
     const onScroll = () => {
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      scrollTarget = totalHeight > 0 ? window.scrollY / totalHeight : 0;
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      scrollTarget = total > 0 ? window.scrollY / total : 0;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
 
@@ -247,64 +362,77 @@ export default function FullCanvas() {
       frameRef.current = requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
 
-      // Smooth scroll & mouse
-      scrollProgress += (scrollTarget - scrollProgress) * 0.05;
-      mouse.x += (mouse.targetX - mouse.x) * 0.04;
-      mouse.y += (mouse.targetY - mouse.y) * 0.04;
+      // Smooth interpolation
+      scrollProgress += (scrollTarget - scrollProgress) * 0.04;
+      mouse.x += (mouse.tx - mouse.x) * 0.035;
+      mouse.y += (mouse.ty - mouse.y) * 0.035;
 
-      // ─── CAMERA: follows mouse + scroll ───
-      const camBaseZ = 20;
-      const camScrollZ = scrollProgress * 8; // zoom in as you scroll
-      camera.position.x = mouse.x * 2;
-      camera.position.y = mouse.y * 1.5 - scrollProgress * 4;
-      camera.position.z = camBaseZ - camScrollZ;
-      camera.lookAt(0, -scrollProgress * 4, 0);
+      // ─── CAMERA ───
+      const camZoom = THREE.MathUtils.lerp(22, 14, scrollProgress);
+      camera.position.x = mouse.x * 2.5;
+      camera.position.y = mouse.y * 1.8 - scrollProgress * 5;
+      camera.position.z = camZoom;
+      camera.lookAt(0, -scrollProgress * 5, 0);
 
-      // ─── MAIN KNOT: rotation speed + scale changes with scroll ───
-      const knotRotSpeed = 0.2 + scrollProgress * 0.3;
-      knot.rotation.x = t * knotRotSpeed;
-      knot.rotation.y = t * (knotRotSpeed + 0.15);
-      knot.rotation.z = t * 0.1;
+      // Chromatic aberration increases with scroll
+      chroma.uniforms.amount.value = 0.001 + scrollProgress * 0.003;
 
-      // Scale: big on hero, smaller on later sections
-      const knotScale = THREE.MathUtils.lerp(1.0, 0.5, scrollProgress);
-      knot.scale.set(knotScale, knotScale, knotScale);
+      // ─── MAIN GLASS ICOSAHEDRON ───
+      const mainSpeed = 0.15 + scrollProgress * 0.2;
+      mainMesh.rotation.x = t * mainSpeed;
+      mainMesh.rotation.y = t * (mainSpeed + 0.12);
+      mainMesh.rotation.z = t * 0.08;
 
-      // Position drifts with scroll
-      knot.position.x = mouse.x * 0.8;
-      knot.position.y = mouse.y * 0.5 - scrollProgress * 2;
+      const mainScale = THREE.MathUtils.lerp(1.0, 0.4, scrollProgress);
+      mainMesh.scale.setScalar(mainScale);
 
-      // Emissive pulse
-      knotMat.emissiveIntensity = 0.15 + Math.sin(t * 1.8) * 0.1 + scrollProgress * 0.15;
+      mainMesh.position.x = mouse.x * 1.2;
+      mainMesh.position.y = mouse.y * 0.8 - scrollProgress * 3;
+      mainMesh.position.z = -scrollProgress * 2;
 
-      // Wireframe counter-rotation
-      wireMesh.rotation.x = -t * (knotRotSpeed * 0.6);
-      wireMesh.rotation.y = t * (knotRotSpeed * 0.8);
-      const wireScale = THREE.MathUtils.lerp(1.0, 0.4, scrollProgress);
-      wireMesh.scale.set(wireScale, wireScale, wireScale);
-      wireMesh.position.copy(knot.position);
+      mainMat.emissiveIntensity = 0.25 + Math.sin(t * 2) * 0.15 + scrollProgress * 0.2;
 
-      // ─── ICOSAHEDRON: orbit around knot ───
-      const icoAngle = t * 0.5;
-      const icoOrbit = 3.5 - scrollProgress * 1.5;
-      ico.position.x = Math.cos(icoAngle) * icoOrbit + mouse.x * 0.5;
-      ico.position.y = Math.sin(icoAngle * 0.7) * 2 + mouse.y * 0.3 - scrollProgress;
-      ico.position.z = Math.sin(icoAngle) * 2 - scrollProgress * 3;
-      ico.rotation.x = t * 0.6;
-      ico.rotation.y = t * 0.4;
+      // ─── WIREFRAME ───
+      wireMesh.rotation.x = -t * (mainSpeed * 0.7);
+      wireMesh.rotation.y = t * (mainSpeed * 0.9);
+      const wireScale = THREE.MathUtils.lerp(1.0, 0.35, scrollProgress);
+      wireMesh.scale.setScalar(wireScale);
+      wireMesh.position.copy(mainMesh.position);
 
-      const icoScale = THREE.MathUtils.lerp(1.0, 0.6, scrollProgress);
-      ico.scale.set(icoScale, icoScale, icoScale);
-      icoMat.emissiveIntensity = 0.12 + Math.sin(t * 2 + 1) * 0.08;
+      // ─── CORE ───
+      coreMesh.rotation.x = t * 0.6;
+      coreMesh.rotation.z = t * 0.3;
+      const corePulse = 1 + Math.sin(t * 3) * 0.15;
+      coreMesh.scale.setScalar(corePulse * mainScale);
+      coreMesh.position.copy(mainMesh.position);
+      coreMat.opacity = 0.3 + Math.sin(t * 2) * 0.15;
 
-      // ─── FLOATERS: scatter outward with scroll ───
+      // ─── DODECAHEDRON: orbit around main ───
+      const dodecaAngle = t * 0.4;
+      const dodecaOrbit = THREE.MathUtils.lerp(4.0, 2.0, scrollProgress);
+      dodecaMesh.position.x = Math.cos(dodecaAngle) * dodecaOrbit + mouse.x * 0.6;
+      dodecaMesh.position.y = Math.sin(dodecaAngle * 0.6) * 2.5 + mouse.y * 0.4 - scrollProgress * 2;
+      dodecaMesh.position.z = Math.sin(dodecaAngle) * 2.5 - scrollProgress * 4;
+
+      dodecaMesh.rotation.x = t * 0.5;
+      dodecaMesh.rotation.y = t * 0.35;
+
+      const dodecaScale = THREE.MathUtils.lerp(1.0, 0.5, scrollProgress);
+      dodecaMesh.scale.setScalar(dodecaScale);
+      dodecaMat.emissiveIntensity = 0.2 + Math.sin(t * 2.5 + 1) * 0.1;
+
+      dodecaWire.position.copy(dodecaMesh.position);
+      dodecaWire.rotation.copy(dodecaMesh.rotation);
+      dodecaWire.scale.setScalar(dodecaScale);
+
+      // ─── FLOATERS: scatter + orbit ───
       floaters.forEach((f) => {
-        const scatter = 1 + scrollProgress * 2;
+        const scatter = 1 + scrollProgress * 3;
         const orbAngle = t * f.orbitSpeed + f.phase;
 
-        f.mesh.position.x = f.basePos.x * scatter + Math.cos(orbAngle) * f.orbitRadius + mouse.x * 0.3;
-        f.mesh.position.y = f.basePos.y * scatter + Math.sin(orbAngle * 0.8) * f.orbitRadius * 0.6 + mouse.y * 0.2 - scrollProgress * 3;
-        f.mesh.position.z = f.basePos.z + Math.sin(orbAngle) * 1.5 - scrollProgress * 4;
+        f.mesh.position.x = f.basePos.x * scatter + Math.cos(orbAngle) * f.orbitRadius + mouse.x * 0.4;
+        f.mesh.position.y = f.basePos.y * scatter + Math.sin(orbAngle * 0.7) * f.orbitRadius * 0.5 + mouse.y * 0.25 - scrollProgress * 4;
+        f.mesh.position.z = f.basePos.z + Math.sin(orbAngle) * 2 - scrollProgress * 5;
 
         f.mesh.rotation.x = t * f.rotSpeed.x;
         f.mesh.rotation.y = t * f.rotSpeed.y;
@@ -312,29 +440,51 @@ export default function FullCanvas() {
         f.wire.position.copy(f.mesh.position);
         f.wire.rotation.copy(f.mesh.rotation);
 
-        // Fade with scroll
         const mat = f.mesh.material as THREE.MeshPhysicalMaterial;
-        mat.opacity = 0.6 * (1 - scrollProgress * 0.6);
+        mat.opacity = 0.6 * (1 - scrollProgress * 0.7);
       });
 
-      // ─── RINGS: rotate faster with scroll ───
+      // ─── RINGS: speed + scale with scroll ───
       rings.forEach((r) => {
-        const ringSpeed = r.speed * (1 + scrollProgress * 2);
+        const ringSpeed = r.speed * (1 + scrollProgress * 3);
         if (r.axis === "x") r.mesh.rotation.x = t * ringSpeed;
         else if (r.axis === "y") r.mesh.rotation.y = t * ringSpeed;
         else r.mesh.rotation.z = t * ringSpeed;
 
-        // Rings scale with scroll
-        const ringScale = THREE.MathUtils.lerp(1.0, 1.5, scrollProgress);
-        r.mesh.scale.set(ringScale, ringScale, ringScale);
+        const ringScale = THREE.MathUtils.lerp(1.0, 1.8, scrollProgress);
+        r.mesh.scale.setScalar(ringScale);
       });
 
-      // ─── PARTICLES: swirl faster with scroll ───
-      particles.rotation.y = t * (0.01 + scrollProgress * 0.03);
-      particles.rotation.x = Math.sin(t * 0.1) * 0.05 + scrollProgress * 0.2;
+      // ─── PARTICLES: spiral flow ───
+      const pPos = pGeo.attributes.position.array as Float32Array;
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        // Spiral drift
+        pPos[i3] += pVelocities[i3] + Math.sin(t * 0.5 + i * 0.01) * 0.005;
+        pPos[i3 + 1] += pVelocities[i3 + 1] + Math.cos(t * 0.3 + i * 0.01) * 0.003;
+        pPos[i3 + 2] += pVelocities[i3 + 2];
 
-      // Particle size pulse
-      pMat.size = 0.07 + Math.sin(t * 2) * 0.02;
+        // Wrap particles that drift too far
+        const dist = Math.sqrt(pPos[i3] ** 2 + pPos[i3 + 1] ** 2 + pPos[i3 + 2] ** 2);
+        if (dist > 30) {
+          const angle = Math.random() * Math.PI * 2;
+          pPos[i3] = Math.cos(angle) * 3;
+          pPos[i3 + 1] = (Math.random() - 0.5) * 4;
+          pPos[i3 + 2] = Math.sin(angle) * 3 - 5;
+        }
+      }
+      pGeo.attributes.position.needsUpdate = true;
+
+      particleSystem.rotation.y = t * (0.008 + scrollProgress * 0.02);
+      particleSystem.rotation.x = Math.sin(t * 0.08) * 0.03 + scrollProgress * 0.15;
+
+      // ─── LIGHT RAYS ───
+      lightRays.forEach((ray, i) => {
+        ray.rotation.z = (i / 6) * Math.PI + t * 0.1;
+        ray.rotation.x = Math.sin(t * 0.3 + i) * 0.3;
+        const mat = ray.material as THREE.MeshBasicMaterial;
+        mat.opacity = 0.02 + Math.sin(t * 1.5 + i * 0.5) * 0.015;
+      });
 
       composer.render();
     }
