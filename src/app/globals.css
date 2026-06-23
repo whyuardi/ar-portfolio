@@ -304,6 +304,39 @@ h3.title {
   fill: var(--color-accent);
 }
 
+/* ─── HEADER HIRE BUTTON ─── */
+.header-hire-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 100px;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-accent);
+  border: 1px solid rgba(139, 127, 255, 0.25);
+  background: rgba(139, 127, 255, 0.08);
+  text-decoration: none;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.header-hire-btn:hover {
+  background: rgba(139, 127, 255, 0.18);
+  border-color: rgba(139, 127, 255, 0.5);
+  box-shadow: 0 0 16px rgba(139, 127, 255, 0.2);
+}
+
+.header-hire-btn svg {
+  transition: transform 0.3s ease;
+}
+
+.header-hire-btn:hover svg {
+  transform: translate(1px, -1px);
+}
+
 /* ─── SCROLL INDICATOR ─── */
 #scroll-indicator {
   position: fixed;
