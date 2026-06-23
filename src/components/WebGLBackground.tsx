@@ -330,8 +330,7 @@ void main() {
 
 // ─── MOUNTAIN TERRAIN MESH ───
 function TerrainMesh({ dimRatio }: { dimRatio: number }) {
-  const meshRef1 = useRef<THREE.Mesh>(null);
-  const meshRef2 = useRef<THREE.Mesh>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
   const matRef = useRef<THREE.ShaderMaterial>(null);
   const matWireRef = useRef<THREE.ShaderMaterial>(null);
   const clockRef = useRef(0);
@@ -373,18 +372,15 @@ function TerrainMesh({ dimRatio }: { dimRatio: number }) {
     }
     
     const rotX = -Math.PI / 3.5;
-    if (meshRef1.current) {
-      meshRef1.current.rotation.x = rotX;
-    }
-    if (meshRef2.current) {
-      meshRef2.current.rotation.x = rotX;
+    if (meshRef.current) {
+      meshRef.current.rotation.x = rotX;
     }
   });
 
   return (
     <group>
-      {/* 🏔️ Foreground Range (Solid) */}
-      <mesh ref={meshRef1} geometry={geo} position={[0, -1.2, 0]} scale={[1.8, 1.8, 1.8]} frustumCulled={false}>
+      {/* 🏔️ Terrain (Solid) */}
+      <mesh ref={meshRef} geometry={geo} position={[0, -1.2, 0]} scale={[2.0, 2.0, 2.0]} frustumCulled={false}>
         <shaderMaterial
           ref={matRef}
           vertexShader={terrainVertShader}
@@ -395,34 +391,10 @@ function TerrainMesh({ dimRatio }: { dimRatio: number }) {
         />
       </mesh>
 
-      {/* 🟩 Foreground Grid (Wireframe Overlay) */}
-      <mesh geometry={geo} position={[0, -1.19, 0]} scale={[1.8, 1.8, 1.8]} rotation={[-Math.PI / 3.5, 0, 0]} frustumCulled={false}>
+      {/* 🟩 Wireframe Overlay */}
+      <mesh geometry={geo} position={[0, -1.19, 0]} scale={[2.0, 2.0, 2.0]} rotation={[-Math.PI / 3.5, 0, 0]} frustumCulled={false}>
         <shaderMaterial
           ref={matWireRef}
-          vertexShader={terrainVertShader}
-          fragmentShader={wireFragShader}
-          uniforms={uniforms}
-          side={THREE.DoubleSide}
-          transparent={true}
-          wireframe={true}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* 🏔️ Background Range (Solid) - Offset, Taller, pushed back in Z */}
-      <mesh ref={meshRef2} geometry={geo} position={[3.2, -1.6, -5.0]} scale={[2.2, 2.2, 2.5]} frustumCulled={false}>
-        <shaderMaterial
-          vertexShader={terrainVertShader}
-          fragmentShader={terrainFragShader}
-          uniforms={uniforms}
-          side={THREE.DoubleSide}
-          transparent={true}
-        />
-      </mesh>
-
-      {/* 🟩 Background Grid (Wireframe Overlay) */}
-      <mesh geometry={geo} position={[3.2, -1.59, -5.0]} scale={[2.2, 2.2, 2.5]} rotation={[-Math.PI / 3.5, 0, 0]} frustumCulled={false}>
-        <shaderMaterial
           vertexShader={terrainVertShader}
           fragmentShader={wireFragShader}
           uniforms={uniforms}
