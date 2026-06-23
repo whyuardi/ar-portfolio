@@ -16,6 +16,7 @@ import {
 const Preloader = dynamic(() => import("@/components/Preloader"), { ssr: false });
 const MinimalHeader = dynamic(() => import("@/components/MinimalHeader"), { ssr: false });
 const ScrollIndicator = dynamic(() => import("@/components/ScrollIndicator"), { ssr: false });
+const MountainScene = dynamic(() => import("@/components/3d/MountainScene"), { ssr: false });
 
 // ─── DATA ───
 const projects = [
@@ -144,8 +145,13 @@ export default function Home() {
 
       <div className="scroll-container">
         {/* ─── HERO ─── */}
-        <section id="hero" className="snap-section">
-          <div className="section-content flex flex-col justify-center min-h-[100vh]">
+        <section id="hero" className="snap-section relative overflow-hidden">
+          {/* 3D Mountain Background */}
+          <div className="absolute inset-0 w-full h-full pointer-events-none">
+            <MountainScene />
+          </div>
+
+          <div className="section-content flex flex-col justify-center min-h-[100vh] relative z-10">
             <SectionReveal>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-glow border border-accent/20 text-xs text-accent mb-6">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
