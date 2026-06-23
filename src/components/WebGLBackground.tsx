@@ -1,223 +1,261 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-// ─── FLOATING WIREFRAME ICOSAHEDRON ───
-function WireframeIcosahedron({ dimRatio }: { dimRatio: number }) {
+// ─── GLASS DODECAHEDRON ───
+function GlassDodecahedron({ dimRatio }: { dimRatio: number }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const edgesRef = useRef<THREE.LineSegments>(null);
+  const glowRef = useRef<THREE.Mesh>(null);
 
-  const geometry = useMemo(() => new THREE.IcosahedronGeometry(2.2, 0), []);
-  const edgesGeometry = useMemo(() => new THREE.EdgesGeometry(geometry), [geometry]);
+  const geo = useMemo(() => new THREE.DodecahedronGeometry(1.8, 0), []);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     if (meshRef.current) {
-      meshRef.current.rotation.x = Math.sin(t * 0.15) * 0.3;
-      meshRef.current.rotation.y = t * 0.08;
-      meshRef.current.rotation.z = Math.cos(t * 0.12) * 0.15;
-      meshRef.current.position.y = Math.sin(t * 0.3) * 0.2;
+      meshRef.current.rotation.x = Math.sin(t * 0.2) * 0.2;
+      meshRef.current.rotation.y = t * 0.15;
+      meshRef.current.rotation.z = Math.cos(t * 0.1) * 0.1;
     }
     if (edgesRef.current) {
-      edgesRef.current.rotation.x = meshRef.current?.rotation.x ?? 0;
-      edgesRef.current.rotation.y = meshRef.current?.rotation.y ?? 0;
-      edgesRef.current.rotation.z = meshRef.current?.rotation.z ?? 0;
-      edgesRef.current.position.y = meshRef.current?.position.y ?? 0;
+      edgesRef.current.rotation.copy(meshRef.current!.rotation);
+    }
+    if (glowRef.current) {
+      glowRef.current.rotation.x = -meshRef.current!.rotation.x * 0.5;
+      glowRef.current.rotation.y = -meshRef.current!.rotation.y * 0.5;
     }
   });
 
+  const opacity = 1 - dimRatio * 0.7;
+
   return (
-    <group position={[0, 0.5, -3]}>
-      {/* Solid face (very subtle) */}
-      <mesh ref={meshRef} geometry={geometry}>
-        <meshStandardMaterial
-          color="#F8F7F2"
+    <group position={[0, 0.3, -2]}>
+      {/* Outer glow halo */}
+      <mesh ref={glowRef} geometry={geo} scale={1.15}>
+        <meshBasicMaterial
+          color="#6C63FF"
           transparent
-          opacity={0.02 * (1 - dimRatio * 0.8)}
-          wireframe={false}
-          side={THREE.DoubleSide}
+          opacity={0.04 * opacity}
+          wireframe
+          depthWrite={false}
         />
       </mesh>
-      {/* Wireframe edges */}
-      <lineSegments ref={edgesRef} geometry={edgesGeometry}>
-        <lineBasicMaterial
-          color="#F8F7F2"
+
+      {/* Glass body */}
+      <mesh ref={meshRef} geometry={geo}>
+        <meshPhysicalMaterial
+          color="#C8C0FF"
           transparent
-          opacity={0.18 * (1 - dimRatio * 0.8)}
+          opacity={0.15 * opacity}
+          roughness={0.1}
+          metalness={0.2}
+          clearcoat={1}
+          clearcoatRoughness={0.3}
+          envMapIntensity={1.5}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Wireframe edges with glow */}
+      <lineSegments
+        ref={edgesRef}
+        geometry={new THREE.EdgesGeometry(geo)}
+      >
+        <lineBasicMaterial
+          color="#8B7FFF"
+          transparent
+          opacity={0.35 * opacity}
           linewidth={1}
         />
       </lineSegments>
+
+      {/* Inner glow points */}
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <pointLight
+          key={i}
+          position={[
+            (Math.random() - 0.5) * 3,
+            (Math.random() - 0.5) * 3,
+            (Math.random() - 0.5) * 3,
+          ]}
+          intensity={0.15 * opacity}
+          distance={4}
+          color="#8B7FFF"
+        />
+      ))}
     </group>
   );
 }
 
-// ─── FLOATING OCTAHEDRON (smaller, offset) ───
-function WireframeOctahedron({ dimRatio }: { dimRatio: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const edgesRef = useRef<THREE.LineSegments>(null);
+// ─── ORBITING FRAGMENTS ───
+function OrbitingFragments({ dimRatio }: { dimRatio: number }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const count = 16;
+  const fragmentGeo = useMemo(() => new THREE.OctahedronGeometry(0.08, 0), []);
 
-  const geometry = useMemo(() => new THREE.OctahedronGeometry(1.0, 0), []);
-  const edgesGeometry = useMemo(() => new THREE.EdgesGeometry(geometry), [geometry]);
+  const fragments = useMemo(() => {
+    return Array.from({ length: count }, (_, i) => {
+      const angle = (i / count) * Math.PI * 2;
+      const radius = 2.2 + Math.random() * 0.8;
+      const tilt = Math.random() * Math.PI;
+      const speed = 0.3 + Math.random() * 0.4;
+      const startOffset = Math.random() * Math.PI * 2;
+      return { angle, radius, tilt, speed, startOffset };
+    });
+  }, []);
+
+  const opacity = 1 - dimRatio * 0.7;
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    if (meshRef.current) {
-      meshRef.current.rotation.x = t * 0.12;
-      meshRef.current.rotation.y = Math.sin(t * 0.2) * 0.5;
-      meshRef.current.position.y = Math.cos(t * 0.25) * 0.3;
-    }
-    if (edgesRef.current) {
-      edgesRef.current.rotation.x = meshRef.current?.rotation.x ?? 0;
-      edgesRef.current.rotation.y = meshRef.current?.rotation.y ?? 0;
-      edgesRef.current.position.y = meshRef.current?.position.y ?? 0;
+    if (groupRef.current) {
+      groupRef.current.rotation.y = t * 0.02;
     }
   });
 
   return (
-    <group position={[3.5, -0.8, -5]}>
-      <mesh ref={meshRef} geometry={geometry}>
-        <meshStandardMaterial
-          color="#F8F7F2"
-          transparent
-          opacity={0.015 * (1 - dimRatio * 0.8)}
-          wireframe={false}
-        />
-      </mesh>
-      <lineSegments ref={edgesRef} geometry={edgesGeometry}>
-        <lineBasicMaterial
-          color="#F8F7F2"
-          transparent
-          opacity={0.12 * (1 - dimRatio * 0.8)}
-        />
-      </lineSegments>
+    <group ref={groupRef} position={[0, 0.3, -2]}>
+      {fragments.map((f, i) => {
+        const x = Math.cos(f.angle + f.startOffset) * f.radius;
+        const z = Math.sin(f.angle + f.startOffset) * f.radius;
+        const y = Math.sin(f.startOffset * 2 + i) * 0.5;
+        return (
+          <mesh
+            key={i}
+            geometry={fragmentGeo}
+            position={[x, y, z]}
+          >
+            <meshStandardMaterial
+              color="#8B7FFF"
+              transparent
+              opacity={0.3 * opacity}
+              emissive="#6C63FF"
+              emissiveIntensity={0.2 * opacity}
+            />
+          </mesh>
+        );
+      })}
+
+      {/* Connecting beams */}
+      {fragments.slice(0, 8).map((f, i) => {
+        const x = Math.cos(f.angle + f.startOffset) * f.radius;
+        const z = Math.sin(f.angle + f.startOffset) * f.radius;
+        const y = Math.sin(f.startOffset * 2 + i) * 0.5;
+        return (
+          <sprite key={`beam-${i}`} position={[x, y, z]}>
+            <spriteMaterial
+              color="#6C63FF"
+              transparent
+              opacity={0.08 * opacity}
+              depthWrite={false}
+            />
+          </sprite>
+        );
+      })}
     </group>
   );
 }
 
-// ─── TORUS RING ───
-function TorusRing({ dimRatio }: { dimRatio: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
+// ─── FLOATING LIGHT ORBS ───
+function LightOrbs({ dimRatio }: { dimRatio: number }) {
+  const orbsRef = useRef<THREE.Group>(null);
 
-  const edgesGeometry = useMemo(() => {
-    const torus = new THREE.TorusGeometry(3.0, 0.02, 8, 64);
-    return new THREE.EdgesGeometry(torus);
+  const orbs = useMemo(() => {
+    const count = 8;
+    return Array.from({ length: count }, (_, i) => ({
+      pos: [
+        (Math.random() - 0.5) * 12,
+        (Math.random() - 0.5) * 8,
+        -1 - Math.random() * 8,
+      ] as [number, number, number],
+      size: 0.03 + Math.random() * 0.08,
+      speed: 0.1 + Math.random() * 0.2,
+      phase: Math.random() * Math.PI * 2,
+    }));
   }, []);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    if (meshRef.current) {
-      meshRef.current.rotation.x = Math.PI * 0.35 + Math.sin(t * 0.1) * 0.1;
-      meshRef.current.rotation.y = t * 0.05;
+    if (orbsRef.current) {
+      orbsRef.current.rotation.y = t * 0.005;
     }
   });
 
+  const opacity = 0.4 * (1 - dimRatio * 0.7);
+
   return (
-    <lineSegments ref={meshRef} geometry={edgesGeometry} position={[0, 0.5, -3]}>
-      <lineBasicMaterial
-        color="#F8F7F2"
-        transparent
-        opacity={0.1 * (1 - dimRatio * 0.8)}
-      />
-    </lineSegments>
+    <group ref={orbsRef}>
+      {orbs.map((o, i) => (
+        <mesh key={i} position={o.pos}>
+          <sphereGeometry args={[o.size, 8, 8]} />
+          <meshBasicMaterial
+            color="#8B7FFF"
+            transparent
+            opacity={opacity}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
-// ─── PARTICLE FIELD ───
-function ParticleField({ dimRatio }: { dimRatio: number }) {
-  const pointsRef = useRef<THREE.Points>(null);
+// ─── SUBTLE FLOATING RING ───
+function FloatingRing({ dimRatio }: { dimRatio: number }) {
+  const ref = useRef<THREE.Mesh>(null);
 
-  const { positions, sizes } = useMemo(() => {
-    const count = 200;
-    const pos = new Float32Array(count * 3);
-    const sz = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 12;
-      pos[i * 3 + 2] = -2 - Math.random() * 15;
-      sz[i] = 0.5 + Math.random() * 1.5;
-    }
-    return { positions: pos, sizes: sz };
+  const ringGeo = useMemo(() => {
+    const r = new THREE.RingGeometry(2.6, 2.8, 64);
+    r.rotateX(-Math.PI / 2);
+    return r;
   }, []);
-
-  const geometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
-    return geo;
-  }, [positions, sizes]);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    if (pointsRef.current) {
-      pointsRef.current.rotation.y = t * 0.01;
-      const mat = pointsRef.current.material as THREE.PointsMaterial;
-      mat.opacity = 0.25 * (1 - dimRatio * 0.7);
+    if (ref.current) {
+      ref.current.rotation.z = t * 0.06;
+      ref.current.position.y = Math.sin(t * 0.4) * 0.15;
     }
   });
 
+  const opacity = 0.12 * (1 - dimRatio * 0.7);
+
   return (
-    <points ref={pointsRef} geometry={geometry}>
-      <pointsMaterial
-        color="#F8F7F2"
-        size={0.03}
+    <mesh ref={ref} geometry={ringGeo} position={[0, 0.3, -2]}>
+      <meshBasicMaterial
+        color="#6C63FF"
         transparent
-        opacity={0.25}
-        sizeAttenuation
+        opacity={opacity}
+        side={THREE.DoubleSide}
         depthWrite={false}
       />
-    </points>
+    </mesh>
   );
 }
 
-// ─── GRID FLOOR (subtle) ───
-function GridFloor({ dimRatio }: { dimRatio: number }) {
-  const ref = useRef<THREE.GridHelper>(null);
-
-  useFrame(() => {
-    if (ref.current) {
-      const mat = ref.current.material as THREE.Material;
-      if (Array.isArray(mat)) {
-        mat.forEach((m) => {
-          if ("opacity" in m) (m as THREE.Material).opacity = 0.06 * (1 - dimRatio * 0.8);
-        });
-      } else {
-        mat.opacity = 0.06 * (1 - dimRatio * 0.8);
-      }
-    }
-  });
-
-  return (
-    <gridHelper
-      ref={ref}
-      args={[40, 40, "#F8F7F2", "#F8F7F2"]}
-      position={[0, -4, -5]}
-      rotation={[0, 0, 0]}
-    >
-      <lineBasicMaterial transparent opacity={0.06} depthWrite={false} />
-    </gridHelper>
-  );
-}
-
-// ─── SCENE CONTAINER ───
+// ─── SCENE ───
 function Scene({ dimRatio }: { dimRatio: number }) {
   return (
     <>
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[5, 5, 5]} intensity={0.5} />
-      <pointLight position={[-3, 2, 2]} intensity={0.3} color="#F8F7F2" />
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[5, 8, 5]} intensity={0.4} color="#C8C0FF" />
+      <directionalLight position={[-3, -2, 4]} intensity={0.2} color="#6C63FF" />
+      <hemisphereLight
+        args={["#6C63FF", "#1a1a2e", 0.3]}
+      />
 
-      <WireframeIcosahedron dimRatio={dimRatio} />
-      <WireframeOctahedron dimRatio={dimRatio} />
-      <TorusRing dimRatio={dimRatio} />
-      <ParticleField dimRatio={dimRatio} />
-      <GridFloor dimRatio={dimRatio} />
+      <GlassDodecahedron dimRatio={dimRatio} />
+      <OrbitingFragments dimRatio={dimRatio} />
+      <LightOrbs dimRatio={dimRatio} />
+      <FloatingRing dimRatio={dimRatio} />
     </>
   );
 }
 
-// ─── SCROLL DIM HOOK ───
+// ─── SCROLL DIM ───
 function useScrollDim() {
   const [dimRatio, setDimRatio] = useState(0);
 
@@ -236,9 +274,7 @@ function useScrollDim() {
   return dimRatio;
 }
 
-// ─── MAIN BACKGROUND ───
-import { useState, useEffect } from "react";
-
+// ─── MAIN EXPORT ───
 export default function WebGLBackground() {
   const dimRatio = useScrollDim();
 
@@ -253,7 +289,7 @@ export default function WebGLBackground() {
       }}
     >
       <Canvas
-        camera={{ position: [0, 0, 6], fov: 50, near: 0.1, far: 100 }}
+        camera={{ position: [0, 0, 5], fov: 45, near: 0.1, far: 50 }}
         style={{ background: "transparent" }}
         gl={{ alpha: true, antialias: true }}
         dpr={[1, 2]}
