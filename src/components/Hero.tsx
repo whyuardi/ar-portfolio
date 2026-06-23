@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, MapPin, At, GraduationCap, LinkedinLogo, GithubLogo } from "@phosphor-icons/react";
+import { ARBlade } from "./3d/ARBlade";
 
 export default function Hero() {
   return (
@@ -8,9 +9,24 @@ export default function Hero() {
 
       <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/30 to-transparent z-[1]" />
 
+      {/* Background glow untuk 3D object */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          right: '5%',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(ellipse at center, rgba(0,212,255,0.08) 0%, rgba(107,47,255,0.06) 40%, transparent 70%)',
+          zIndex: 1,
+        }}
+      />
+
       <div className="relative z-10 w-full">
         <div className="max-w-6xl mx-auto px-6 pt-32 pb-24">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-end">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[70vh]">
+            {/* KIRI — Konten teks */}
             <div className="lg:col-span-7">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-glow border border-accent/20 text-xs text-accent mb-6">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
@@ -90,7 +106,24 @@ export default function Hero() {
               </div>
             </div>
 
-            <div className="lg:col-span-5 hidden lg:block" />
+            {/* KANAN — 3D Crystal Blade Object */}
+            <div
+              className="relative lg:col-span-5 hidden lg:flex items-center justify-center"
+              style={{ height: '580px' }}
+            >
+              {/* Glow ring di belakang object */}
+              <div
+                className="absolute inset-0 rounded-full pointer-events-none"
+                style={{
+                  background: 'radial-gradient(ellipse at center, rgba(107,47,255,0.15) 0%, transparent 65%)',
+                }}
+              />
+
+              {/* 3D Blade */}
+              <div className="w-full h-full relative">
+                <ARBlade />
+              </div>
+            </div>
           </div>
         </div>
       </div>
