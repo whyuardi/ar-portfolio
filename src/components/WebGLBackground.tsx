@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import {
@@ -27,8 +27,9 @@ const sectionStates: Record<string, SectionState> = {
   contact:    { position: [0, 0, 0],      scale: 1.0,  rotationSpeed: 0.006, edgeOpacity: 0.5  },
 };
 
-// ─── Lerp helper ───
-function lerp(a: number, b: number, t: number): number {
+// ─── Delta-based smooth lerp ───
+function smoothLerp(a: number, b: number, delta: number, speed: number): number {
+  const t = 1 - Math.exp(-delta * speed);
   return a + (b - a) * t;
 }
 
@@ -54,7 +55,7 @@ function IcosahedronObject() {
     return () => window.removeEventListener("mousemove", handleMouse);
   }, []);
 
-  // IntersectionObserver on sections
+  // IntersectionObserver on sections - with rootMargin for early trigger
   useEffect(() => {
     const sections = Object.keys(sectionStates);
     const observers: IntersectionObserver[] = [];
@@ -68,7 +69,10 @@ function IcosahedronObject() {
             setActiveSection(id);
           }
         },
-        { threshold: 0.4 },
+        {
+          threshold: 0.1,
+          rootMargin: "-30% 0px -30% 0px",
+        },
       );
       obs.observe(el);
       observers.push(obs);
@@ -86,59 +90,56 @@ function IcosahedronObject() {
     targetRef.current.edgeOpacity = state.edgeOpacity;
   }, [activeSection]);
 
-  useFrame((state) => {
+  // Edge material ref
+  const edgeMatRef = useRef<THREE.LineBasicMaterial>(null);
+
+  // Geometry - instanced once
+  const [geo] = useState(() => new THREE.IcosahedronGeometry(1.8, 10));
+  const [edgeGeo] = useState(() => new THREE.EdgesGeometry(geo));
+
+  useFrame((state, delta) => {
     if (!groupRef.current) return;
     const g = groupRef.current;
     const t = targetRef.current;
-    const lerpFactor = 0.04;
+    const d = Math.min(delta, 0.1); // cap delta to avoid jumps
 
-    // Lerp position
-    g.position.x = lerp(g.position.x, t.pos.x, lerpFactor);
-    g.position.y = lerp(g.position.y, t.pos.y, lerpFactor);
-    g.position.z = lerp(g.position.z, t.pos.z, lerpFactor);
+    // Smooth position lerp (speed 3.5)
+    g.position.x = smoothLerp(g.position.x, t.pos.x, d, 3.5);
+    g.position.y = smoothLerp(g.position.y, t.pos.y, d, 3.5);
+    g.position.z = smoothLerp(g.position.z, t.pos.z, d, 3.5);
 
-    // Lerp scale
+    // Smooth scale lerp
     const currentScale = g.scale.x;
-    const newScale = lerp(currentScale, t.scale, lerpFactor);
+    const newScale = smoothLerp(currentScale, t.scale, d, 3.5);
     g.scale.setScalar(newScale);
 
-    // Continuous rotation + mouse parallax
+    // Continuous rotation + mouse parallax (smooth)
+    const rotLerpSpeed = 2.5;
     const targetRotX =
       mouseRef.current.y * 0.15 + state.clock.elapsedTime * t.rotSpeed * 0.3;
     const targetRotY =
       mouseRef.current.x * 0.15 + state.clock.elapsedTime * t.rotSpeed;
 
-    g.rotation.x = lerp(g.rotation.x, targetRotX, 0.05);
-    g.rotation.y = lerp(g.rotation.y, targetRotY, 0.05);
+    g.rotation.x = smoothLerp(g.rotation.x, targetRotX, d, rotLerpSpeed);
+    g.rotation.y = smoothLerp(g.rotation.y, targetRotY, d, rotLerpSpeed);
 
-    // Float
-    g.position.y +=
-      Math.sin(state.clock.elapsedTime * 0.8) * 0.003;
-  });
+    // Floating motion (subtle, continuous)
+    g.position.y += Math.sin(state.clock.elapsedTime * 0.6) * 0.002 * d * 60;
 
-  // Edge material ref for opacity updates
-  const edgeMatRef = useRef<THREE.LineBasicMaterial>(null);
-
-  useEffect(() => {
+    // Edge opacity smooth lerp
     if (edgeMatRef.current) {
-      edgeMatRef.current.opacity = targetRef.current.edgeOpacity;
+      edgeMatRef.current.opacity = smoothLerp(
+        edgeMatRef.current.opacity,
+        t.edgeOpacity,
+        d,
+        3,
+      );
     }
-  }, [activeSection]);
-
-  // Update edge opacity in frame
-  useFrame(() => {
-    if (!edgeMatRef.current) return;
-    const target = targetRef.current.edgeOpacity;
-    edgeMatRef.current.opacity = lerp(edgeMatRef.current.opacity, target, 0.04);
   });
-
-  // Geometry (memoized by key)
-  const icoGeo = new THREE.IcosahedronGeometry(1.8, 10);
-  const edgeGeo = new THREE.EdgesGeometry(icoGeo);
 
   return (
     <group ref={groupRef} position={[1.8, 0, 0]}>
-      <mesh geometry={icoGeo}>
+      <mesh geometry={geo}>
         <meshPhysicalMaterial
           color="#0d0d1a"
           metalness={0.95}
