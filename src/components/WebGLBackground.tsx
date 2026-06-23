@@ -2,11 +2,6 @@
 
 import { useRef, useState, useEffect, useMemo, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF } from "@react-three/drei";
-import {
-  EffectComposer,
-  Bloom,
-} from "@react-three/postprocessing";
 import * as THREE from "three";
 
 
@@ -191,54 +186,319 @@ void main() {
 `;
 
 // ─── GLB TERRAIN MODEL (dari Blender) ───
+// ─── NOISE HELPERS (CPU) ───
+function hash2D(x: number, y: number): number {
+  let h = x * 374761393 + y * 668265263;
+  h = (h ^ (h >> 13)) * 1274126177;
+  return (h ^ (h >> 16)) / 2147483647;
+}
+
+function smoothNoise(x: number, y: number): number {
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  const fx = x - ix;
+  const fy = y - iy;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const n00 = hash2D(ix, iy);
+  const n10 = hash2D(ix + 1, iy);
+  const n01 = hash2D(ix, iy + 1);
+  const n11 = hash2D(ix + 1, iy + 1);
+  return n00 + (n10 - n00) * sx + (n01 - n00) * sy + (n11 - n10 - n01 + n00) * sx * sy;
+}
+
+function fbm(x: number, y: number, octaves: number): number {
+  let value = 0;
+  let amplitude = 1;
+  let frequency = 1;
+  let maxVal = 0;
+  for (let i = 0; i < octaves; i++) {
+    value += amplitude * smoothNoise(x * frequency, y * frequency);
+    maxVal += amplitude;
+    amplitude *= 0.5;
+    frequency *= 2;
+  }
+  return value / maxVal;
+}
+
+function ridgedNoise(x: number, y: number, octaves: number): number {
+  let value = 0;
+  let amplitude = 1;
+  let frequency = 1;
+  let maxVal = 0;
+  for (let i = 0; i < octaves; i++) {
+    let n = 1 - Math.abs(smoothNoise(x * frequency, y * frequency) * 2 - 1);
+    n = n * n;
+    value += amplitude * n;
+    maxVal += amplitude;
+    amplitude *= 0.5;
+    frequency *= 2.3;
+  }
+  return value / maxVal;
+}
+
+// ─── HEIGHTMAP GENERATOR ───
+function generateHeightmap(width: number, depth: number): Float32Array {
+  const size = (width + 1) * (depth + 1);
+  const heights = new Float32Array(size);
+  const scale = 0.035;
+  const seed = 42.7;
+
+  for (let z = 0; z <= depth; z++) {
+    for (let x = 0; x <= width; x++) {
+      const idx = z * (width + 1) + x;
+      const px = (x - width / 2 + seed) * scale;
+      const pz = (z - depth / 2 + seed) * scale;
+
+      // Mountain ridges
+      const ridge = ridgedNoise(px * 0.4, pz * 0.4, 5) * 1.6;
+
+      // Broad hills
+      const hills = fbm(px * 0.25, pz * 0.25, 3) * 0.6;
+
+      // Fine detail
+      const detail = fbm(px * 1.2, pz * 1.2, 3) * 0.15;
+
+      // Terrain shaping: flatten edges, keep center mountainous
+      const distFromCenter = Math.sqrt(
+        ((x - width / 2) / (width / 2)) ** 2 +
+        ((z - depth / 2) / (depth / 2)) ** 2
+      );
+      const edgeFade = Math.max(0, 1 - distFromCenter * 0.6);
+      const edgeCliff = Math.max(0, 1 - distFromCenter * 0.9);
+
+      // Combine: ridges for structure, hills for mass, detail for texture
+      let h = ridge * 0.7 + hills * 0.3 + detail;
+      h = h * edgeFade * 0.9 + edgeCliff * 0.1;
+
+      // Add a sharp peak near center
+      const peakDist = Math.sqrt(
+        ((x - width * 0.55) / (width * 0.08)) ** 2 +
+        ((z - depth * 0.45) / (depth * 0.08)) ** 2
+      );
+      const peak = Math.max(0, 1 - peakDist * 0.15) * 0.3 * ridge;
+
+      heights[idx] = Math.max(0, h + peak);
+    }
+  }
+  return heights;
+}
+
+// ─── VERTEX SHADER ───
+const terrainVertShader = `
+attribute float aHeight;
+uniform float uDimRatio;
+varying float vHeight;
+varying vec3 vNormal;
+varying vec3 vPosition;
+
+void main() {
+  vHeight = aHeight;
+  vec3 pos = position;
+
+  // Subtle wind-ripple on grass (micro displacement)
+  pos.y = aHeight;
+
+  vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+  vPosition = worldPos.xyz;
+  vNormal = normalize(normalMatrix * normal);
+
+  vec4 mvPosition = viewMatrix * worldPos;
+  gl_Position = projectionMatrix * mvPosition;
+}
+`;
+
+// ─── FRAGMENT SHADER ───
+const terrainFragShader = `
+uniform float uDimRatio;
+uniform vec3 uCameraPos;
+varying float vHeight;
+varying vec3 vNormal;
+varying vec3 vPosition;
+
+// Simple 2D noise for texture detail
+float hash(vec2 p) {
+  p = fract(p * vec2(5.3983, 5.4427));
+  p += dot(p.yx, p.xy + vec2(21.5351, 14.3137));
+  return fract(p.x * p.y * 95.4337);
+}
+
+float noise2D(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash(i + vec2(0,0)), hash(i + vec2(1,0)), u.x),
+    mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x),
+    u.y
+  );
+}
+
+void main() {
+  // Height-based color zones
+  float h = vHeight;
+
+  // Color layers
+  vec3 waterColor = vec3(0.02, 0.06, 0.12);
+  vec3 lowColor = vec3(0.08, 0.12, 0.10);       // dark earth
+  vec3 grassColor = vec3(0.15, 0.25, 0.13);      // dark green
+  vec3 rockColor = vec3(0.28, 0.22, 0.18);       // brown rock
+  vec3 highRockColor = vec3(0.35, 0.30, 0.25);   // light rock
+  vec3 snowColor = vec3(0.72, 0.75, 0.78);       // snow
+
+  // Blend thresholds
+  float t1 = 0.02;
+  float t2 = 0.08;
+  float t3 = 0.25;
+  float t4 = 0.50;
+  float t5 = 0.75;
+
+  // Base color
+  vec3 col = lowColor;
+
+  // Layer blending with smooth transitions
+  float blend;
+
+  // Low → grass
+  if (h < t2) {
+    blend = smoothstep(t1, t2, h);
+    col = mix(lowColor, grassColor, blend);
+  }
+  // Grass → rock
+  else if (h < t3) {
+    blend = smoothstep(t2, t3, h);
+    col = mix(grassColor, rockColor, blend);
+  }
+  // Rock → high rock
+  else if (h < t4) {
+    blend = smoothstep(t3, t4, h);
+    col = mix(rockColor, highRockColor, blend);
+  }
+  // High rock → snow
+  else if (h < t5) {
+    blend = smoothstep(t4, t5, h);
+    col = mix(highRockColor, snowColor, blend);
+  } else {
+    col = snowColor;
+  }
+
+  // Detail texture noise (micro variation)
+  vec2 uv = vPosition.xz * 2.5;
+  float detailNoise = noise2D(uv) * 0.12 - 0.06;
+  col += detailNoise;
+
+  // Steepness-based rock reveal (slopes = rock)
+  vec3 norm = normalize(vNormal);
+  float slope = 1.0 - abs(norm.y);
+  float rockReveal = smoothstep(0.15, 0.5, slope);
+  // Higher slopes reveal rock underneath
+  col = mix(col, rockColor, rockReveal * 0.4);
+
+  // Lighting
+  vec3 lightDir = normalize(vec3(0.3, 0.8, 0.2));
+  float diff = max(0.15, dot(norm, lightDir));
+  float ambient = 0.35;
+  float lighting = ambient + (1.0 - ambient) * diff;
+  col *= lighting;
+
+  // Rim light (edge glow)
+  vec3 viewDir = normalize(uCameraPos - vPosition);
+  float rim = 1.0 - max(0.0, dot(norm, viewDir));
+  rim = smoothstep(0.4, 1.0, rim);
+  vec3 rimColor = vec3(0.3, 0.5, 0.7);
+  col += rim * rimColor * 0.15;
+
+  // Fog (distance-based)
+  float dist = length(vPosition - uCameraPos);
+  float fog = smoothstep(5.0, 20.0, dist);
+  col = mix(col, vec3(0.02, 0.06, 0.12), fog * 0.5);
+
+  // Scroll dim
+  col *= (1.0 - uDimRatio * 0.6);
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+// ─── PROCEDURAL TERRAIN ───
 function TerrainModel({ dimRatio }: { dimRatio: number }) {
-  const { scene } = useGLTF("/terrain.glb");
-  const meshRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const heightmapRef = useRef<Float32Array | null>(null);
 
-  // Clone + optimize materials
-  const cloned = useMemo(() => {
-    const copy = scene.clone();
-    copy.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.material = child.material.clone();
-        const mat = child.material as THREE.MeshStandardMaterial;
-        // Boost greens, add wet look
-        const hsl = new THREE.Color();
-        hsl.copy(mat.color);
-        const h = hsl.getHSL({ h: 0, s: 0, l: 0 });
-        hsl.setHSL(h.h, Math.min(h.s * 1.2, 1), Math.min(h.l * 1.1, 1));
-        mat.color.copy(hsl);
-        mat.metalness = 0.2;
-        mat.roughness = 0.65;
-        mat.envMapIntensity = 0.4;
-        mat.needsUpdate = true;
-      }
-    });
-    return copy;
-  }, [scene]);
+  // Pre-generate heightmap + geometry
+  const geometry = useMemo(() => {
+    const segW = 180;
+    const segD = 180;
+    const sizeW = 18;
+    const sizeD = 14;
 
-  useFrame(() => {
+    const geo = new THREE.PlaneGeometry(sizeW, sizeD, segW, segD);
+    geo.rotateX(-Math.PI / 2);
+
+    const heights = generateHeightmap(segW, segD);
+    heightmapRef.current = heights;
+
+    const pos = geo.attributes.position;
+    const heightAttr = new Float32Array(pos.count);
+
+    let minH = Infinity;
+    let maxH = -Infinity;
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+
+      // Map world position to heightmap index
+      const nx = (x / sizeW + 0.5) * segW;
+      const nz = (z / sizeD + 0.5) * segD;
+      const ix = Math.round(nx);
+      const iz = Math.round(nz);
+      const idx = Math.min(Math.max(iz, 0), segD) * (segW + 1) + Math.min(Math.max(ix, 0), segW);
+
+      const h = heights[idx] * 2.5 - 0.1;
+      pos.setY(i, h);
+      heightAttr[i] = h;
+      minH = Math.min(minH, h);
+      maxH = Math.max(maxH, h);
+    }
+
+    // Normalize heights for shader
+    const range = maxH - minH;
+    for (let i = 0; i < pos.count; i++) {
+      heightAttr[i] = (heightAttr[i] - minH) / range;
+    }
+
+    geo.setAttribute("aHeight", new THREE.BufferAttribute(heightAttr, 1));
+    geo.computeVertexNormals();
+    pos.needsUpdate = true;
+
+    return geo;
+  }, []);
+
+  const uniforms = useMemo(
+    () => ({
+      uDimRatio: { value: 0 },
+      uCameraPos: { value: new THREE.Vector3(0, 0, 0) },
+    }),
+    []
+  );
+
+  useFrame((state) => {
     if (meshRef.current) {
-      // Dim scroll effect
-      meshRef.current.children.forEach((child) => {
-        if (child instanceof THREE.Mesh) {
-          const mat = child.material as THREE.MeshStandardMaterial;
-          mat.opacity = 1 - dimRatio * 0.7;
-          mat.transparent = true;
-        }
-      });
+      uniforms.uDimRatio.value = dimRatio;
+      uniforms.uCameraPos.value.copy(state.camera.position);
     }
   });
 
   return (
-    <group ref={meshRef}>
-      <primitive
-        object={cloned}
-        scale={3.5}
-        position={[0, -4, -8]}
-        rotation={[0, Math.PI * 0.15, 0]}
+    <mesh ref={meshRef} geometry={geometry} position={[0, -4.5, -7]}>
+      <shaderMaterial
+        vertexShader={terrainVertShader}
+        fragmentShader={terrainFragShader}
+        uniforms={uniforms}
+        side={THREE.DoubleSide}
       />
-    </group>
+    </mesh>
   );
 }
 
