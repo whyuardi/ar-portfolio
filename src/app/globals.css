@@ -2,27 +2,27 @@
 
 @layer base {
   html {
-    background-color: #08080A !important;
+    background-color: #0A0A12 !important;
     color-scheme: dark;
   }
   body {
-    background-color: #08080A !important;
-    color: #F8F7F2 !important;
+    background-color: #0A0A12 !important;
+    color: #E8E4F0 !important;
   }
 }
 
 @theme {
-  --color-bg: #08080A;
-  --color-surface: #0F0F12;
-  --color-surface-elevated: #16161A;
-  --color-border: rgba(248, 247, 242, 0.08);
-  --color-border-hover: rgba(248, 247, 242, 0.15);
-  --color-accent: #F8F7F2;
-  --color-accent-dim: #ECEBE8;
-  --color-accent-glow: rgba(248, 247, 242, 0.06);
-  --color-text: #F8F7F2;
-  --color-text-secondary: #ECEBE8;
-  --color-text-muted: #6A6A6D;
+  --color-bg: #0A0A12;
+  --color-surface: #12101E;
+  --color-surface-elevated: #1A1628;
+  --color-border: rgba(139, 127, 255, 0.08);
+  --color-border-hover: rgba(139, 127, 255, 0.2);
+  --color-accent: #8B7FFF;
+  --color-accent-dim: #6C63FF;
+  --color-accent-glow: rgba(139, 127, 255, 0.06);
+  --color-text: #E8E4F0;
+  --color-text-secondary: #C4BDD6;
+  --color-text-muted: #6E6490;
   --radius: 0px;
   --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
   --font-display: var(--font-cormorant), Georgia, serif;
@@ -38,13 +38,13 @@
 
 html {
   scroll-behavior: smooth;
-  background-color: #08080A;
+  background-color: #0A0A12;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #08080A !important;
-  color: #F8F7F2 !important;
+  background-color: #0A0A12 !important;
+  color: #E8E4F0 !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -93,13 +93,13 @@ body {
   text-align: center;
 }
 
-/* ─── TYPOGRAPHY — EVERSWAP STYLE ─── */
+/* ─── TYPOGRAPHY ─── */
 .kicker {
   font-family: var(--font-sans);
   font-size: clamp(0.75rem, 1.2vw, 1rem);
   font-weight: 400;
   letter-spacing: 0.05em;
-  color: var(--color-text-secondary);
+  color: var(--color-accent);
   margin-bottom: 1rem;
 }
 
@@ -119,14 +119,13 @@ h1.title {
   font-style: italic;
   font-family: var(--font-display);
   font-weight: 300;
+  color: var(--color-accent);
 }
 
-/* Section titles — large */
 h2.title {
   font-size: clamp(3rem, 10vw, 8rem);
 }
 
-/* Sub-section titles */
 h3.title {
   font-size: clamp(1.5rem, 3vw, 2.5rem);
   font-weight: 500;
@@ -155,7 +154,7 @@ h3.title {
   color: var(--color-text-muted);
 }
 
-/* ─── TITLE WRAPPER (EverSwap layout) ─── */
+/* ─── TITLE WRAPPER ─── */
 .title-wrapper {
   display: flex;
   flex-direction: column;
@@ -163,7 +162,7 @@ h3.title {
   gap: 0.5rem;
 }
 
-/* ─── BUTTONS — EVERSWAP STYLE ─── */
+/* ─── BUTTONS ─── */
 .button {
   display: inline-flex;
   align-items: center;
@@ -177,14 +176,15 @@ h3.title {
   cursor: pointer;
   text-decoration: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid rgba(248, 247, 242, 0.15);
-  background: transparent;
-  color: var(--color-text);
+  border: 1px solid rgba(139, 127, 255, 0.2);
+  background: rgba(139, 127, 255, 0.06);
+  color: var(--color-accent);
 }
 
 .button:hover {
-  border-color: rgba(248, 247, 242, 0.35);
-  background: rgba(248, 247, 242, 0.05);
+  border-color: rgba(139, 127, 255, 0.5);
+  background: rgba(139, 127, 255, 0.12);
+  box-shadow: 0 0 20px rgba(139, 127, 255, 0.15);
 }
 
 .button svg {
@@ -199,7 +199,8 @@ h3.title {
 }
 
 .button.is-transparent {
-  border-color: rgba(248, 247, 242, 0.12);
+  border-color: rgba(139, 127, 255, 0.12);
+  background: transparent;
 }
 
 /* Social buttons in footer */
@@ -218,16 +219,17 @@ h3.title {
   border-radius: 100px;
   font-size: 0.8125rem;
   font-weight: 400;
-  border: 1px solid rgba(248, 247, 242, 0.12);
+  border: 1px solid rgba(139, 127, 255, 0.15);
   color: var(--color-text-secondary);
   text-decoration: none;
   transition: all 0.3s ease;
 }
 
 .btn2 a:hover {
-  border-color: rgba(248, 247, 242, 0.3);
-  color: var(--color-text);
-  background: rgba(248, 247, 242, 0.04);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(139, 127, 255, 0.08);
+  box-shadow: 0 0 16px rgba(139, 127, 255, 0.12);
 }
 
 /* ─── PRELOADER ─── */
@@ -260,7 +262,7 @@ h3.title {
   font-family: var(--font-display);
   font-size: clamp(0.875rem, 1.2vw, 1rem);
   font-weight: 300;
-  color: var(--color-text-muted);
+  color: var(--color-accent);
   letter-spacing: 0.05em;
 }
 
@@ -277,17 +279,17 @@ h3.title {
   align-items: center;
   justify-content: space-between;
   border-radius: 100px;
-  border: 1px solid rgba(248, 247, 242, 0.08);
-  background: rgba(8, 8, 10, 0.35);
+  border: 1px solid rgba(139, 127, 255, 0.1);
+  background: rgba(10, 10, 18, 0.5);
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #site-header.scrolled {
-  background: rgba(8, 8, 10, 0.7);
-  border-color: rgba(248, 247, 242, 0.15);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  background: rgba(10, 10, 18, 0.75);
+  border-color: rgba(139, 127, 255, 0.2);
+  box-shadow: 0 10px 30px rgba(108, 99, 255, 0.1);
 }
 
 #site-header__logo a {
@@ -299,10 +301,10 @@ h3.title {
 #site-header__logo svg {
   height: 28px;
   width: auto;
-  fill: var(--color-text);
+  fill: var(--color-accent);
 }
 
-/* ─── SCROLL INDICATOR (Vertical bar - right side) ─── */
+/* ─── SCROLL INDICATOR ─── */
 #scroll-indicator {
   position: fixed;
   right: 1.5rem;
@@ -311,19 +313,19 @@ h3.title {
   z-index: 50;
   width: 2px;
   height: 60px;
-  background: rgba(248, 247, 242, 0.08);
+  background: rgba(139, 127, 255, 0.1);
   border-radius: 2px;
   overflow: hidden;
 }
 
 #scroll-indicator__bar {
   width: 100%;
-  background: var(--color-text);
+  background: var(--color-accent);
   border-radius: 2px;
   transition: height 0.15s linear;
 }
 
-/* ─── SIDE NAVIGATION (EverSwap dots) ─── */
+/* ─── SIDE NAVIGATION ─── */
 #navbar {
   position: fixed;
   right: 2rem;
@@ -367,7 +369,7 @@ h3.title {
 #navbar li a svg {
   width: 20px;
   height: 20px;
-  fill: var(--color-text-secondary);
+  fill: var(--color-accent);
 }
 
 #navbar li.active a {
@@ -379,7 +381,7 @@ h3.title {
   transform: scale(1.1);
 }
 
-/* ─── ICON WRAPPER (Diamond shapes for cards) ─── */
+/* ─── ICON WRAPPER ─── */
 .icon-wrapper {
   width: 76px;
   height: 76px;
@@ -394,10 +396,10 @@ h3.title {
 .icon-wrapper svg {
   width: 100%;
   height: 100%;
-  fill: var(--color-text);
+  fill: var(--color-accent);
 }
 
-/* ─── CANVAS LOGO (Section decorations) ─── */
+/* ─── CANVAS LOGO ─── */
 .canvas-logo {
   position: relative;
   width: 100%;
@@ -411,7 +413,7 @@ h3.title {
   height: 100% !important;
 }
 
-/* ─── DESCRIPTION (Section text) ─── */
+/* ─── DESCRIPTION ─── */
 .description {
   max-width: 32rem;
   margin-top: 1.5rem;
@@ -424,7 +426,7 @@ body::before {
   inset: 0;
   z-index: 9998;
   pointer-events: none;
-  opacity: 0.02;
+  opacity: 0.025;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
@@ -461,19 +463,19 @@ body::before {
   }
   #site-header__mobile-logo svg {
     height: 20px;
-    fill: var(--color-text);
+    fill: var(--color-accent);
   }
 }
 
 /* ─── SELECTION ─── */
 ::selection {
-  background: var(--color-text);
+  background: var(--color-accent);
   color: var(--color-bg);
 }
 
 /* ─── FOCUS ─── */
 :focus-visible {
-  outline: 1px solid rgba(248, 247, 242, 0.3);
+  outline: 1px solid rgba(139, 127, 255, 0.4);
   outline-offset: 2px;
 }
 
@@ -496,7 +498,7 @@ body::before {
   gap: 0.75rem;
 }
 
-/* Everyone (3-card grid) */
+/* Everyone (skills grid) */
 #home-everyone .section__content {
   gap: 2rem;
 }
@@ -536,16 +538,17 @@ body::before {
   align-items: center;
   text-align: center;
   padding: 2.5rem 2rem;
-  border: 1px solid rgba(248, 247, 242, 0.06);
+  border: 1px solid rgba(139, 127, 255, 0.08);
   border-radius: 2px;
-  background: rgba(248, 247, 242, 0.02);
-  transition: border-color 0.3s ease, background 0.3s ease;
+  background: rgba(139, 127, 255, 0.03);
+  transition: all 0.3s ease;
   min-width: 14rem;
 }
 
 .everyone-card:hover {
-  border-color: rgba(248, 247, 242, 0.12);
-  background: rgba(248, 247, 242, 0.04);
+  border-color: rgba(139, 127, 255, 0.2);
+  background: rgba(139, 127, 255, 0.06);
+  box-shadow: 0 0 30px rgba(108, 99, 255, 0.08);
 }
 
 .everyone-card .icon-wrapper {
@@ -564,33 +567,35 @@ body::before {
   gap: 0.75rem;
   text-align: left;
   padding: 2rem;
-  border: 1px solid rgba(248, 247, 242, 0.06);
+  border: 1px solid rgba(139, 127, 255, 0.08);
   border-radius: 2px;
-  background: rgba(248, 247, 242, 0.02);
-  transition: border-color 0.3s ease, background 0.3s ease;
+  background: rgba(139, 127, 255, 0.03);
+  transition: all 0.3s ease;
   max-width: 48rem;
   width: 100%;
 }
 
 .project-card:hover {
-  border-color: rgba(248, 247, 242, 0.12);
-  background: rgba(248, 247, 242, 0.04);
+  border-color: rgba(139, 127, 255, 0.2);
+  background: rgba(139, 127, 255, 0.06);
+  box-shadow: 0 0 24px rgba(108, 99, 255, 0.08);
 }
 
 /* ─── TECH TAGS ─── */
 .tech-tag {
   padding: 0.25rem 0.75rem;
   border-radius: 100px;
-  border: 1px solid rgba(248, 247, 242, 0.1);
+  border: 1px solid rgba(139, 127, 255, 0.12);
   font-size: 0.7rem;
-  color: var(--color-text-muted);
+  color: var(--color-accent);
   letter-spacing: 0.04em;
-  transition: border-color 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .tech-tag:hover {
-  border-color: rgba(248, 247, 242, 0.25);
-  color: var(--color-text-secondary);
+  border-color: rgba(139, 127, 255, 0.35);
+  background: rgba(139, 127, 255, 0.08);
+  color: var(--color-accent);
 }
 
 /* ─── CARD ROLE LABEL ─── */
@@ -598,7 +603,7 @@ body::before {
   font-size: 0.7rem;
   letter-spacing: 0.05em;
   margin-bottom: 0.25rem;
-  color: var(--color-text-muted);
+  color: var(--color-accent);
   text-transform: uppercase;
 }
 
@@ -608,7 +613,7 @@ body::before {
   justify-content: space-between;
   align-items: baseline;
   padding: 1rem 0;
-  border-bottom: 1px solid rgba(248, 247, 242, 0.06);
+  border-bottom: 1px solid rgba(139, 127, 255, 0.08);
   gap: 1rem;
 }
 
@@ -635,7 +640,7 @@ body::before {
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 500;
   line-height: 1;
-  color: var(--color-text);
+  color: var(--color-accent);
 }
 
 /* ─── FOOTER ─── */
@@ -648,4 +653,14 @@ body::before {
   .footer-heading {
     font-size: clamp(2rem, 8vw, 3rem) !important;
   }
+}
+
+/* ─── ACCENT GLOW LINE ─── */
+.accent-line {
+  width: 40px;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: 1px;
+  margin: 1.5rem auto;
+  opacity: 0.6;
 }

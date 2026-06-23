@@ -170,8 +170,8 @@ export default function Home() {
           <section id="home-hero" className="section" style={{ minHeight: "100vh" }}>
             <div className="section__content">
               <SectionReveal delay={0.3}>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 text-xs text-white/70 mb-4 font-sans tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[rgba(139,127,255,0.2)] text-xs text-[#8B7FFF] mb-4 font-sans tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#8B7FFF] animate-pulse" />
                   #OPENTOWORK
                 </div>
               </SectionReveal>
@@ -182,6 +182,9 @@ export default function Home() {
                 <p className="subtitle" style={{ marginTop: "0.5rem", opacity: 0.5 }}>
                   Mobile Developer · IT Support · 0x Enthusiast
                 </p>
+              </SectionReveal>
+              <SectionReveal delay={0.8}>
+                <div className="accent-line" />
               </SectionReveal>
               <SectionReveal delay={0.9}>
                 <div className="btn2" style={{ marginTop: "1.5rem" }}>
@@ -217,8 +220,8 @@ export default function Home() {
 
               <SectionReveal delay={0.2}>
                 <p className="body1 description" style={{ marginTop: "0.5rem" }}>
-                  Informatics graduate from <strong style={{ color: "var(--color-text)" }}>Universitas Teknologi Yogyakarta</strong>{" "}
-                  with hands-on mobile development experience from <strong style={{ color: "var(--color-text)" }}>Bangkit Academy</strong>{" "}
+                  Informatics graduate from <strong style={{ color: "var(--color-accent)" }}>Universitas Teknologi Yogyakarta</strong>{" "}
+                  with hands-on mobile development experience from <strong style={{ color: "var(--color-accent)" }}>Bangkit Academy</strong>{" "}
                   — a program by Google, GoTo, and Traveloka. Skilled in Android development, Web3, and full-stack engineering.
                 </p>
               </SectionReveal>
