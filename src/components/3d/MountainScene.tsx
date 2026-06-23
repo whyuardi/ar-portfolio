@@ -3,7 +3,6 @@
 import { useRef, useMemo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Environment, PerspectiveCamera } from '@react-three/drei'
-import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 
 // ─── TERRAIN SHADERS ───
@@ -330,14 +329,6 @@ export default function MountainScene() {
         <directionalLight position={[5, 5, 5]} intensity={0.8} color="#ffffff" />
 
         <TestObject />
-
-        <EffectComposer>
-          <Bloom
-            intensity={0.5}
-            luminanceThreshold={0.2}
-            luminanceSmoothing={0.5}
-          />
-        </EffectComposer>
       </Canvas>
     </div>
   )
