@@ -526,4 +526,128 @@ body::before {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  max-width: 40rem;
+}
+
+/* ─── EVERYONE CARDS (Skills Grid) ─── */
+.everyone-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 2rem;
+  border: 1px solid rgba(248, 247, 242, 0.06);
+  border-radius: 2px;
+  background: rgba(248, 247, 242, 0.02);
+  transition: border-color 0.3s ease, background 0.3s ease;
+  min-width: 14rem;
+}
+
+.everyone-card:hover {
+  border-color: rgba(248, 247, 242, 0.12);
+  background: rgba(248, 247, 242, 0.04);
+}
+
+.everyone-card .icon-wrapper {
+  opacity: 1;
+  margin-bottom: 1.5rem;
+}
+
+.everyone-card .body2 {
+  text-align: center;
+}
+
+/* ─── PROJECT CARDS ─── */
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: left;
+  padding: 2rem;
+  border: 1px solid rgba(248, 247, 242, 0.06);
+  border-radius: 2px;
+  background: rgba(248, 247, 242, 0.02);
+  transition: border-color 0.3s ease, background 0.3s ease;
+  max-width: 48rem;
+  width: 100%;
+}
+
+.project-card:hover {
+  border-color: rgba(248, 247, 242, 0.12);
+  background: rgba(248, 247, 242, 0.04);
+}
+
+/* ─── TECH TAGS ─── */
+.tech-tag {
+  padding: 0.25rem 0.75rem;
+  border-radius: 100px;
+  border: 1px solid rgba(248, 247, 242, 0.1);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.tech-tag:hover {
+  border-color: rgba(248, 247, 242, 0.25);
+  color: var(--color-text-secondary);
+}
+
+/* ─── CARD ROLE LABEL ─── */
+.role-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+/* ─── EXPERIENCE TIMELINE ─── */
+.timeline-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(248, 247, 242, 0.06);
+  gap: 1rem;
+}
+
+.timeline-entry p:first-child {
+  font-weight: 400;
+  color: var(--color-text);
+}
+
+/* ─── STATS ROW ─── */
+.stats-row {
+  display: flex;
+  gap: 3rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-number {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+/* ─── FOOTER ─── */
+.footer-heading {
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .footer-heading {
+    white-space: normal;
+    font-size: clamp(2rem, 8vw, 3rem) !important;
+  }
 }

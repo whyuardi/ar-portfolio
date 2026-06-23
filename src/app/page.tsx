@@ -224,22 +224,14 @@ export default function Home() {
               </SectionReveal>
 
               <SectionReveal delay={0.3}>
-                <div style={{
-                  display: "flex",
-                  gap: "3rem",
-                  flexWrap: "wrap",
-                  justifyContent: "center",
-                  marginTop: "2rem",
-                }}>
+                <div className="stats-row">
                   {[
                     { n: "2026", l: "Graduate", d: "Universitas Teknologi Yogyakarta" },
                     { n: "6", l: "Projects", d: "Web3, Mobile & ML" },
                     { n: "500+", l: "Connections", d: "LinkedIn Network" },
                   ].map((s) => (
-                    <div key={s.l} style={{ textAlign: "center" }}>
-                      <div style={{ fontFamily: "var(--font-display)", fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 500, lineHeight: 1, color: "var(--color-text)" }}>
-                        {s.n}
-                      </div>
+                    <div key={s.l} className="stat-item">
+                      <div className="stat-number">{s.n}</div>
                       <div className="body2" style={{ marginTop: "0.25rem" }}>{s.l}</div>
                       <div className="body2" style={{ fontSize: "0.75rem" }}>{s.d}</div>
                     </div>
@@ -267,29 +259,10 @@ export default function Home() {
               }}>
                 {projects.map((project, i) => (
                   <SectionReveal key={project.title} delay={0.1 * (i + 1)}>
-                    <div style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.75rem",
-                      textAlign: "left",
-                      padding: "2rem",
-                      border: "1px solid rgba(248, 247, 242, 0.06)",
-                      borderRadius: "2px",
-                      background: "rgba(248, 247, 242, 0.02)",
-                      transition: "border-color 0.3s ease, background 0.3s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(248, 247, 242, 0.12)";
-                      e.currentTarget.style.background = "rgba(248, 247, 242, 0.04)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(248, 247, 242, 0.06)";
-                      e.currentTarget.style.background = "rgba(248, 247, 242, 0.02)";
-                    }}
-                    >
+                    <div className="project-card">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div>
-                          <p className="body2" style={{ fontSize: "0.7rem", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>
+                          <p className="role-label">
                             {project.role}
                           </p>
                           <h3 className="title" style={{ fontSize: "clamp(1.25rem, 2.5vw, 1.75rem)", textAlign: "left" }}>
@@ -314,14 +287,7 @@ export default function Home() {
                       <p className="body2">{project.desc}</p>
                       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                         {project.techs.map((tech) => (
-                          <span key={tech} style={{
-                            padding: "0.25rem 0.75rem",
-                            borderRadius: "100px",
-                            border: "1px solid rgba(248, 247, 242, 0.1)",
-                            fontSize: "0.7rem",
-                            color: "var(--color-text-muted)",
-                            letterSpacing: "0.04em",
-                          }}>
+                          <span key={tech} className="tech-tag">
                             {tech}
                           </span>
                         ))}
@@ -391,15 +357,9 @@ export default function Home() {
                 }}>
                   {experience.map((exp, i) => (
                     <SectionReveal key={exp.role} delay={0.35 + i * 0.1}>
-                      <div style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "baseline",
-                        padding: "1rem 0",
-                        borderBottom: "1px solid rgba(248, 247, 242, 0.06)",
-                      }}>
+                      <div className="timeline-entry">
                         <div>
-                          <p style={{ fontWeight: 400, color: "var(--color-text)" }}>{exp.role}</p>
+                          <p>{exp.role}</p>
                           <p className="body2" style={{ marginTop: "0.25rem" }}>{exp.company}</p>
                         </div>
                         <p className="body2" style={{ whiteSpace: "nowrap" }}>{exp.period}</p>
@@ -444,7 +404,7 @@ export default function Home() {
                 <p className="subtitle">Stay connected</p>
               </SectionReveal>
               <SectionReveal delay={0.1}>
-                <h2 className="title" style={{ marginTop: "0.5rem" }}>
+                <h2 className="title footer-heading" style={{ marginTop: "0.5rem", fontSize: "clamp(2.5rem, 7vw, 5rem)" }}>
                   <span>Build with</span>
                   <span>Ardhiansyah</span>
                 </h2>
