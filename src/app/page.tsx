@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const Preloader = dynamic(() => import("@/components/Preloader"), { ssr: false });
 const MinimalHeader = dynamic(() => import("@/components/MinimalHeader"), { ssr: false });
@@ -117,10 +117,41 @@ const experience = [
   },
 ];
 
+// ─── RUNNING SECTION INDEX ───
+function RunningIndex() {
+  const [idx, setIdx] = useState("00");
+
+  useEffect(() => {
+    const sections = document.querySelectorAll<HTMLElement>("section[id]");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.getAttribute("id");
+            const map: Record<string, string> = {
+              "home-hero": "00",
+              "home-everblade": "01",
+              "home-evernet": "02",
+              "home-everyone": "03",
+              "home-relayers": "04",
+              "home-pool": "05",
+            };
+            setIdx(map[id || ""] || "00");
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+    sections.forEach((s) => observer.observe(s));
+    return () => observer.disconnect();
+  }, []);
+
+  return <div className="running-index">{idx} / 05</div>;
+}
+
 // ─── MAIN ───
 export default function Home() {
   useEffect(() => {
-    // Intersection Observer for active nav
     const sections = document.querySelectorAll<HTMLElement>("section[id]");
     const navLinks = document.querySelectorAll("#navbar li");
 
@@ -149,6 +180,8 @@ export default function Home() {
       <MinimalHeader />
       <ScrollIndicator />
       <SideNav />
+      <RunningIndex />
+      <div className="deco-line" />
 
       <div id="ui">
         <main className="page">
@@ -156,13 +189,17 @@ export default function Home() {
           {/* ═══════════ HERO ═══════════ */}
           <section id="home-hero" className="section">
             <div className="section__content">
-              <p className="hero-meta">Available for hire</p>
+              <p className="hero-overline">Available for hire</p>
 
               <h1 className="hero-name">
                 <span className="line">
                   <span className="line-inner">Ardhian<span className="accent">sya</span>h</span>
                 </span>
               </h1>
+
+              <div className="hero-rule" />
+
+              <p className="hero-role">Mobile Developer / Web3 Builder / IT Support</p>
 
               <p className="hero-desc">
                 Building mobile apps, Web3 protocols, and intelligent systems
@@ -199,14 +236,14 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ═══════════ ABOUT ═══════════ */}
-          <section id="home-everblade" className="section" style={{ minHeight: "auto" }}>
-            <div className="section__content" style={{ padding: "8rem 2rem" }}>
+          {/* ═══════════ ABOUT — SPLIT ═══════════ */}
+          <section id="home-everblade" className="section" style={{ minHeight: "100vh" }}>
+            <div className="section__content" style={{ padding: "8rem 3rem" }}>
               <div className="about-grid">
                 <div className="about-left">
                   <p className="section-label">Who am I</p>
                   <h2 className="about-heading">
-                    Informatics<br />graduate from<br />UTY
+                    Informatics<br />graduate<br />from UTY
                   </h2>
                 </div>
                 <div className="about-right">
@@ -245,7 +282,7 @@ export default function Home() {
 
           {/* ═══════════ PROJECTS — NUMBERED LIST ═══════════ */}
           <section id="home-evernet" className="section" style={{ minHeight: "auto" }}>
-            <div className="section__content" style={{ padding: "6rem 2rem" }}>
+            <div className="section__content" style={{ padding: "6rem 3rem" }}>
               <div className="projects-header">
                 <h2>Projects</h2>
                 <span className="projects-count">{projects.length} total</span>
@@ -281,14 +318,14 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ═══════════ SKILLS — TEXT LIST ═══════════ */}
+          {/* ═══════════ SKILLS — MONOSPACE GRID ═══════════ */}
           <section id="home-everyone" className="section" style={{ minHeight: "auto" }}>
-            <div className="section__content" style={{ padding: "6rem 2rem" }}>
+            <div className="section__content" style={{ padding: "6rem 3rem" }}>
               <h2 style={{ marginBottom: "0.5rem" }}>Tech Stack</h2>
 
-              <div className="skills-layout">
+              <div className="skills-grid">
                 {skillGroups.map((group) => (
-                  <div key={group.name} className="skill-category">
+                  <div key={group.name} className="skill-cell">
                     <h3>{group.name}</h3>
                     <div className="skill-items">
                       {group.items.map((item) => (
@@ -301,32 +338,38 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ═══════════ EXPERIENCE — TABLE ═══════════ */}
+          {/* ═══════════ EXPERIENCE — STICKY SIDEBAR ═══════════ */}
           <section id="home-relayers" className="section" style={{ minHeight: "auto" }}>
-            <div className="section__content" style={{ padding: "6rem 2rem" }}>
+            <div className="section__content" style={{ padding: "6rem 3rem" }}>
               <h2 style={{ marginBottom: "0.5rem" }}>Experience</h2>
 
-              <div className="exp-list">
-                {experience.map((exp) => (
-                  <div key={exp.role} className="exp-row">
-                    <span className="exp-period">{exp.period}</span>
-                    <div className="exp-content">
-                      <h3>{exp.role}</h3>
-                      <p className="exp-company">{exp.company}</p>
-                      <p className="exp-desc">{exp.desc}</p>
+              <div className="exp-layout">
+                <div className="exp-sidebar">
+                  <span className="exp-sidebar-label">Career Timeline</span>
+                </div>
+                <div className="exp-list">
+                  {experience.map((exp) => (
+                    <div key={exp.role} className="exp-row">
+                      <span className="exp-period">{exp.period}</span>
+                      <div className="exp-content">
+                        <h3>{exp.role}</h3>
+                        <p className="exp-company">{exp.company}</p>
+                        <p className="exp-desc">{exp.desc}</p>
+                      </div>
+                      <span className="exp-type">{exp.type}</span>
                     </div>
-                    <span className="exp-type">{exp.type}</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </section>
 
           {/* ═══════════ CTA ═══════════ */}
           <section id="home-pool" className="section" style={{ minHeight: "80vh" }}>
-            <div className="section__content" style={{ padding: "8rem 2rem" }}>
+            <div className="section__content" style={{ padding: "8rem 3rem" }}>
               <h2 className="cta-heading">
-                Let&apos;s build<br />
+                Let&apos;s<br />
+                build<br />
                 something<span className="accent">.</span>
               </h2>
               <p className="cta-desc">
@@ -347,7 +390,7 @@ export default function Home() {
 
           {/* ═══════════ FOOTER ═══════════ */}
           <section id="home-join" className="section" style={{ minHeight: "auto" }}>
-            <div className="section__content" style={{ padding: "3rem 2rem" }}>
+            <div className="section__content" style={{ padding: "3rem 3rem" }}>
               <div className="footer-inner">
                 <div className="footer-links">
                   <a href="https://linkedin.com/in/wahyuardi" target="_blank" rel="noopener noreferrer">LinkedIn</a>
