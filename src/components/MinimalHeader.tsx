@@ -16,7 +16,7 @@ export default function MinimalHeader() {
   return (
     <header id="site-header" className={scrolled ? "scrolled" : ""}>
       {/* Desktop */}
-      <div id="site-header__desktop" style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between" }}>
+      <div id="site-header__desktop">
         <div id="site-header__logo">
           <a href="#home-hero" aria-label="Ardhiansyah">
             <svg width="48" height="28" viewBox="0 0 48 28" fill="none" xmlns="http://www.w3.org/2000/svg">
