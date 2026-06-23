@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import SectionReveal from "@/components/SectionReveal";
+import { ARBlade } from "@/components/3d/ARBlade";
 import {
   ArrowRight,
   MapPin,
@@ -146,68 +147,94 @@ export default function Home() {
         {/* ─── HERO ─── */}
         <section id="hero" className="snap-section">
           <div className="section-content flex flex-col justify-center min-h-[100vh]">
-            <SectionReveal>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-glow border border-accent/20 text-xs text-accent mb-6">
-                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                #OPENTOWORK
-              </div>
-            </SectionReveal>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center w-full">
 
-            <SectionReveal delay={0.1}>
-              <h1 className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tighter leading-[0.85] mb-4">
-                Hey, I&apos;m
-                <br />
-                <span className="text-gradient-name">Ardhiansyah</span>
-              </h1>
-            </SectionReveal>
-
-            <SectionReveal delay={0.2}>
-              <p className="text-lg md:text-xl text-text-secondary font-mono mb-8">
-                Mobile Developer · IT Support · 0x Enthusiast
-              </p>
-            </SectionReveal>
-
-            <SectionReveal delay={0.3}>
-              <div className="flex flex-wrap gap-4 mb-10">
-                <a
-                  href="#projects"
-                  onClick={(e) => { e.preventDefault(); scrollTo("projects"); }}
-                  className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-accent text-bg font-medium text-sm hover:bg-accent-dim transition-all hover:gap-3"
-                >
-                  View Projects
-                  <ArrowRight size={16} weight="bold" className="group-hover:translate-x-0.5 transition-transform" />
-                </a>
-                <a
-                  href="https://linkedin.com/in/wahyuardi"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-border text-text-secondary text-sm hover:border-accent/30 hover:text-accent transition-all"
-                >
-                  <LinkedinLogo size={16} weight="duotone" />
-                  LinkedIn
-                </a>
-                <a
-                  href="https://github.com/whyuardi"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-border text-text-secondary text-sm hover:border-accent/30 hover:text-accent transition-all"
-                >
-                  <GithubLogo size={16} weight="duotone" />
-                  GitHub
-                </a>
-              </div>
-            </SectionReveal>
-
-            <SectionReveal delay={0.4}>
-              <div className="flex gap-10 pt-8 border-t border-border">
-                {stats.map((s) => (
-                  <div key={s.l}>
-                    <div className="text-2xl font-bold text-text">{s.n}</div>
-                    <div className="text-xs text-text-muted mt-1 font-mono uppercase tracking-wider">{s.l}</div>
+              {/* KIRI — Konten teks */}
+              <div className="lg:col-span-7">
+                <SectionReveal>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-glow border border-accent/20 text-xs text-accent mb-6">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                    #OPENTOWORK
                   </div>
-                ))}
+                </SectionReveal>
+
+                <SectionReveal delay={0.1}>
+                  <h1 className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tighter leading-[0.85] mb-4">
+                    Hey, I&apos;m
+                    <br />
+                    <span className="text-gradient-name">Ardhiansyah</span>
+                  </h1>
+                </SectionReveal>
+
+                <SectionReveal delay={0.2}>
+                  <p className="text-lg md:text-xl text-text-secondary font-mono mb-8">
+                    Mobile Developer · IT Support · 0x Enthusiast
+                  </p>
+                </SectionReveal>
+
+                <SectionReveal delay={0.3}>
+                  <div className="flex flex-wrap gap-4 mb-10">
+                    <a
+                      href="#projects"
+                      onClick={(e) => { e.preventDefault(); scrollTo("projects"); }}
+                      className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-accent text-bg font-medium text-sm hover:bg-accent-dim transition-all hover:gap-3"
+                    >
+                      View Projects
+                      <ArrowRight size={16} weight="bold" className="group-hover:translate-x-0.5 transition-transform" />
+                    </a>
+                    <a
+                      href="https://linkedin.com/in/wahyuardi"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-border text-text-secondary text-sm hover:border-accent/30 hover:text-accent transition-all"
+                    >
+                      <LinkedinLogo size={16} weight="duotone" />
+                      LinkedIn
+                    </a>
+                    <a
+                      href="https://github.com/whyuardi"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-border text-text-secondary text-sm hover:border-accent/30 hover:text-accent transition-all"
+                    >
+                      <GithubLogo size={16} weight="duotone" />
+                      GitHub
+                    </a>
+                  </div>
+                </SectionReveal>
+
+                <SectionReveal delay={0.4}>
+                  <div className="flex gap-10 pt-8 border-t border-border">
+                    {stats.map((s) => (
+                      <div key={s.l}>
+                        <div className="text-2xl font-bold text-text">{s.n}</div>
+                        <div className="text-xs text-text-muted mt-1 font-mono uppercase tracking-wider">{s.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </SectionReveal>
               </div>
-            </SectionReveal>
+
+              {/* KANAN — 3D Crystal Blade (Spline) */}
+              <div
+                className="relative lg:col-span-5 hidden lg:flex items-center justify-center"
+                style={{ height: '580px' }}
+              >
+                {/* Glow ring di belakang object */}
+                <div
+                  className="absolute inset-0 rounded-full pointer-events-none"
+                  style={{
+                    background: 'radial-gradient(ellipse at center, rgba(107,47,255,0.15) 0%, transparent 65%)',
+                  }}
+                />
+
+                {/* 3D Blade */}
+                <div className="w-full h-full relative">
+                  <ARBlade />
+                </div>
+              </div>
+
+            </div>
           </div>
         </section>
 
