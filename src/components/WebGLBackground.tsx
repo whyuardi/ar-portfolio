@@ -2,282 +2,128 @@
 
 import { useRef, useState, useEffect, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment } from "@react-three/drei";
 import {
   EffectComposer,
   Bloom,
 } from "@react-three/postprocessing";
 import * as THREE from "three";
 
-// ─── GLASS ICOSAHEDRON — everswap style ───
-// Main object: large icosahedron with glass material
-// + edge wireframe + internal ring structures
-// + bloom + environment reflections
+// ─── EVERSWAP DIAMOND — EXACT REPLICA ───
+// Octahedron wireframe viewed from Z-axis = diamond shape
+// 4 outer edges + 4 internal crossing edges
+// No fill — pure wireframe + bloom glow
+// Background: dark green #2A3D2F
 
 // ─── Section → Camera ───
 type CamState = { x: number; y: number; z: number };
 const sectionCameras: Record<string, CamState> = {
-  hero:       { x: 0,  y: 0.5, z: 6 },
-  about:      { x: -1.2, y: 1.2, z: 6.5 },
-  projects:   { x: 0.5, y: 0.8, z: 5 },
-  stack:      { x: 1.5, y: 0.3, z: 7.5 },
-  experience: { x: -0.5, y: 1,   z: 6.5 },
-  contact:    { x: 0,  y: 0.5, z: 6 },
+  hero:       { x: 0,  y: 0,   z: 5 },
+  about:      { x: 0,  y: 0,   z: 5 },
+  projects:   { x: 0,  y: 0,   z: 5 },
+  stack:      { x: 0,  y: 0,   z: 5 },
+  experience: { x: 0,  y: 0,   z: 5 },
+  contact:    { x: 0,  y: 0,   z: 5 },
 };
 
-// ─── Main Glass Object ───
-function GlassIcosahedron({ scrollProgress }: { scrollProgress: number }) {
-  const groupRef = useRef<THREE.Group>(null);
-  const innerRef = useRef<THREE.Mesh>(null);
-  const shellRef = useRef<THREE.Mesh>(null);
+// ─── Diamond Wireframe ───
+function Diamond() {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const linesRef = useRef<THREE.LineSegments>(null);
+  const fogRef = useRef<THREE.Mesh>(null);
+
+  // Octahedron: 6 vertices, 8 faces
+  // Viewed from Z-axis: 4 outer diamond vertices + 1 front center + 1 back (hidden)
+  const geometry = useMemo(() => new THREE.OctahedronGeometry(1.8, 0), []);
+
+  // Edges for wireframe
+  const edgesGeo = useMemo(() => new THREE.EdgesGeometry(geometry), [geometry]);
+
+  // Glass fill — very subtle
+  const material = useMemo(() => new THREE.MeshPhysicalMaterial({
+    color: "#ffffff",
+    metalness: 0,
+    roughness: 0.1,
+    transparent: true,
+    opacity: 0.04,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  }), []);
+
+  // Wireframe — bright white
+  const lineMat = useMemo(() => new THREE.LineBasicMaterial({
+    color: "#ffffff",
+    transparent: true,
+    opacity: 0.8,
+  }), []);
+
+  // Fog/glow sphere — creates volumetric bloom effect
+  const fogMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: "#ffffff",
+    transparent: true,
+    opacity: 0.03,
+    side: THREE.BackSide,
+    depthWrite: false,
+  }), []);
 
   useFrame((state, delta) => {
-    if (!groupRef.current) return;
-    const d = Math.min(delta, 0.1);
     const t = state.clock.elapsedTime;
 
-    // Scroll response: scale down + move up + tilt
-    const scaleTarget = 1 - scrollProgress * 0.45;
-    const yTarget = scrollProgress * 1.2;
-    const rotXTarget = scrollProgress * 0.3;
-    const rotZTarget = scrollProgress * 0.15;
+    // Very slow rotation (like everswap)
+    if (linesRef.current) {
+      linesRef.current.rotation.y += delta * 0.08;
+      linesRef.current.rotation.x = Math.sin(t * 0.05) * 0.05;
+    }
+    if (meshRef.current) {
+      meshRef.current.rotation.y += delta * 0.08;
+      meshRef.current.rotation.x = Math.sin(t * 0.05) * 0.05;
+    }
+    if (fogRef.current) {
+      fogRef.current.rotation.y += delta * 0.08;
+    }
 
-    const lerp = 1 - Math.exp(-d * 3);
-    const s = groupRef.current.scale.x + (scaleTarget - groupRef.current.scale.x) * lerp;
-    groupRef.current.scale.setScalar(s);
-    groupRef.current.position.y += (yTarget - groupRef.current.position.y) * lerp;
-    groupRef.current.rotation.x += (rotXTarget - groupRef.current.rotation.x) * lerp;
-    groupRef.current.rotation.z += (rotZTarget - groupRef.current.rotation.z) * lerp;
-
-    // Slow idle rotation
-    groupRef.current.rotation.y += d * 0.15;
+    // Pulse opacity subtly
+    if (lineMat) {
+      lineMat.opacity = 0.7 + Math.sin(t * 0.5) * 0.1;
+    }
+    if (fogMat) {
+      fogMat.opacity = 0.02 + Math.sin(t * 0.3) * 0.01;
+    }
   });
 
   return (
-    <group ref={groupRef} position={[0, 0, 0]}>
-      {/* Outer wireframe shell — octahedron (diamond shape) */}
-      <mesh ref={shellRef}>
-        <octahedronGeometry args={[2.2, 0]} />
-        <meshPhysicalMaterial
-          color="#4488cc"
-          metalness={0.95}
-          roughness={0.05}
-          transparent
-          opacity={0.08}
-          wireframe
-          envMapIntensity={0.6}
-        />
+    <group>
+      {/* Volumetric glow sphere */}
+      <mesh ref={fogRef}>
+        <sphereGeometry args={[2.0, 16, 16]} />
+        <primitive object={fogMat} attach="material" />
       </mesh>
 
-      {/* Inner glass core — octahedron, no subdivision = sharp diamond */}
-      <mesh ref={innerRef}>
-        <octahedronGeometry args={[2.0, 0]} />
-        <meshPhysicalMaterial
-          color="#5599dd"
-          metalness={0.9}
-          roughness={0.08}
-          transparent
-          opacity={0.15}
-          envMapIntensity={0.8}
-          clearcoat={0.3}
-          clearcoatRoughness={0.2}
-        />
-      </mesh>
+      {/* Glass fill octahedron */}
+      <mesh ref={meshRef} geometry={geometry} material={material} />
 
-      {/* Edge glow ring — horizontal */}
-      <mesh>
-        <ringGeometry args={[2.3, 2.5, 64]} />
-        <meshBasicMaterial
-          color="#4488ff"
-          transparent
-          opacity={0.15}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {/* Edge glow ring — vertical */}
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[2.4, 2.6, 64]} />
-        <meshBasicMaterial
-          color="#8855ff"
-          transparent
-          opacity={0.08}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      {/* Wireframe edges — the actual diamond */}
+      <lineSegments ref={linesRef} geometry={edgesGeo} material={lineMat} />
     </group>
   );
 }
 
-// ─── Orbiting Mini Icosahedrons ───
-function Orbiters() {
-  const ref1 = useRef<THREE.Mesh>(null);
-  const ref2 = useRef<THREE.Mesh>(null);
-  const ref3 = useRef<THREE.Mesh>(null);
-
-  useFrame((state, delta) => {
-    const t = state.clock.elapsedTime;
-    const speed = 0.3;
-
-    // Orbiter 1 — large orbit, blue
-    if (ref1.current) {
-      const angle = t * speed;
-      ref1.current.position.x = Math.cos(angle) * 3.8;
-      ref1.current.position.z = Math.sin(angle) * 3.8;
-      ref1.current.position.y = Math.sin(t * 0.4) * 0.6;
-      ref1.current.rotation.x += delta * 0.5;
-      ref1.current.rotation.y += delta * 0.7;
-    }
-
-    // Orbiter 2 — medium orbit, purple
-    if (ref2.current) {
-      const angle = t * speed * 0.7 + Math.PI * 0.8;
-      ref2.current.position.x = Math.cos(angle) * 3.0;
-      ref2.current.position.z = Math.sin(angle) * 3.0;
-      ref2.current.position.y = Math.sin(t * 0.3 + 1) * 0.4;
-      ref2.current.rotation.x += delta * 0.4;
-      ref2.current.rotation.y += delta * 0.6;
-    }
-
-    // Orbiter 3 — small orbit, cyan
-    if (ref3.current) {
-      const angle = t * speed * 1.2 + Math.PI * 0.3;
-      ref3.current.position.x = Math.cos(angle) * 2.2;
-      ref3.current.position.z = Math.sin(angle) * 2.2;
-      ref3.current.position.y = Math.sin(t * 0.5 + 2) * 0.3;
-      ref3.current.rotation.x += delta * 0.6;
-      ref3.current.rotation.y += delta * 0.4;
-    }
-  });
-
-  return (
-    <>
-      <mesh ref={ref1}>
-        <icosahedronGeometry args={[0.18, 0]} />
-        <meshPhysicalMaterial
-          color="#5599ff"
-          metalness={0.9}
-          roughness={0.1}
-          transparent
-          opacity={0.5}
-          envMapIntensity={0.5}
-        />
-      </mesh>
-      <mesh ref={ref2}>
-        <icosahedronGeometry args={[0.14, 0]} />
-        <meshPhysicalMaterial
-          color="#aa66ff"
-          metalness={0.85}
-          roughness={0.15}
-          transparent
-          opacity={0.4}
-          envMapIntensity={0.4}
-        />
-      </mesh>
-      <mesh ref={ref3}>
-        <icosahedronGeometry args={[0.1, 0]} />
-        <meshPhysicalMaterial
-          color="#44ddff"
-          metalness={0.95}
-          roughness={0.05}
-          transparent
-          opacity={0.6}
-          envMapIntensity={0.6}
-        />
-      </mesh>
-    </>
-  );
-}
-
-// ─── Particles ───
-function Particles() {
-  const ref = useRef<THREE.Points>(null);
-  const count = 600;
-
-  const [positions, sizes] = useMemo(() => {
-    const p = new Float32Array(count * 3);
-    const s = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      p[i * 3] = (Math.random() - 0.5) * 20;
-      p[i * 3 + 1] = (Math.random() - 0.5) * 15;
-      p[i * 3 + 2] = (Math.random() - 0.5) * 12;
-      s[i] = Math.random() * 0.03 + 0.01;
-    }
-    return [p, s];
-  }, []);
-
-  useFrame((state, delta) => {
-    if (ref.current) {
-      ref.current.rotation.y += delta * 0.015;
-    }
-  });
-
-  return (
-    <points ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.025}
-        color="#5599ff"
-        transparent
-        opacity={0.3}
-        sizeAttenuation
-      />
-    </points>
-  );
-}
-
 // ─── Scene ───
-function Scene({ scrollProgress, cameraTargetRef }: {
-  scrollProgress: number;
-  cameraTargetRef: React.MutableRefObject<CamState>;
-}) {
-  const mouseRef = useRef({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const handleMouse = (e: MouseEvent) => {
-      mouseRef.current = {
-        x: (e.clientX / window.innerWidth - 0.5) * 2,
-        y: -(e.clientY / window.innerHeight - 0.5) * 2,
-      };
-    };
-    window.addEventListener("mousemove", handleMouse, { passive: true });
-    return () => window.removeEventListener("mousemove", handleMouse);
-  }, []);
-
-  useFrame((state, delta) => {
-    const d = Math.min(delta, 0.1);
-    const target = cameraTargetRef.current;
-    const mouseOffX = mouseRef.current.x * 0.3;
-    const mouseOffY = mouseRef.current.y * 0.2;
-
-    const lerp = 1 - Math.exp(-d * 2.5);
-    state.camera.position.x += (target.x + mouseOffX - state.camera.position.x) * lerp;
-    state.camera.position.y += (target.y + mouseOffY - state.camera.position.y) * lerp;
-    state.camera.position.z += (target.z - state.camera.position.z) * lerp;
-
+function Scene() {
+  useFrame((state) => {
+    // Static camera — no movement (like everswap loading screen)
+    state.camera.position.set(0, 0, 5);
     state.camera.lookAt(0, 0, 0);
   });
 
   return (
     <>
-      <ambientLight intensity={0.2} />
-      <directionalLight position={[4, 4, 4]} intensity={1.5} color="#4488ff" />
-      <directionalLight position={[-3, 1, -4]} intensity={0.8} color="#8855ff" />
-      <directionalLight position={[0, -3, 2]} intensity={0.3} color="#44ffaa" />
-      <Environment preset="city" />
-
-      <Particles />
-      <Orbiters />
-      <GlassIcosahedron scrollProgress={scrollProgress} />
-
+      <ambientLight intensity={1.0} />
+      <Diamond />
       <EffectComposer>
         <Bloom
-          luminanceThreshold={0.15}
-          luminanceSmoothing={0.85}
-          intensity={1.0}
+          luminanceThreshold={0.0}
+          luminanceSmoothing={0.7}
+          intensity={2.5}
           mipmapBlur
         />
       </EffectComposer>
@@ -288,63 +134,30 @@ function Scene({ scrollProgress, cameraTargetRef }: {
 // ─── Export ───
 export default function WebGLBackground() {
   const [mounted, setMounted] = useState(false);
-  const cameraTargetRef = useRef<CamState>({ x: 0, y: 0.5, z: 6 });
-  const scrollRef = useRef(0);
-  const [scrollProgress, setScrollProgress] = useState(0);
-
-  useEffect(() => {
-    setMounted(true);
-
-    const handleScroll = () => {
-      const scrolled = window.scrollY;
-      const maxScroll = document.body.scrollHeight - window.innerHeight;
-      const progress = maxScroll > 0 ? scrolled / maxScroll : 0;
-      scrollRef.current = progress;
-      setScrollProgress(progress);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
-    // Section detection
-    const sections = Object.keys(sectionCameras);
-    const observers: IntersectionObserver[] = [];
-    sections.forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      const obs = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
-            cameraTargetRef.current = { ...sectionCameras[id] };
-          }
-        },
-        { threshold: 0.3, rootMargin: "-20% 0px -20% 0px" },
-      );
-      obs.observe(el);
-      observers.push(obs);
-    });
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      observers.forEach((o) => o.disconnect());
-    };
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   if (!mounted) return null;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+    <div style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 0,
+      pointerEvents: "none",
+      background: "transparent",
+    }}>
       <Canvas
-        camera={{ position: [0, 0.5, 6], fov: 45, near: 0.1, far: 100 }}
+        camera={{ position: [0, 0, 5], fov: 50, near: 0.1, far: 100 }}
         gl={{
           alpha: true,
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.2,
+          toneMappingExposure: 1.0,
         }}
         dpr={[1, 1.5]}
         frameloop="always"
-        style={{ background: "transparent" }}
       >
-        <Scene scrollProgress={scrollProgress} cameraTargetRef={cameraTargetRef} />
+        <Scene />
       </Canvas>
     </div>
   );
