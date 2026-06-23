@@ -642,12 +642,10 @@ body::before {
 .footer-heading {
   text-align: center;
   line-height: 1;
-  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
   .footer-heading {
-    white-space: normal;
     font-size: clamp(2rem, 8vw, 3rem) !important;
   }
 }

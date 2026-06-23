@@ -405,8 +405,8 @@ export default function Home() {
               </SectionReveal>
               <SectionReveal delay={0.1}>
                 <h2 className="title footer-heading" style={{ marginTop: "0.5rem", fontSize: "clamp(2.5rem, 7vw, 5rem)" }}>
-                  <span>Build with</span>
-                  <span>Ardhiansyah</span>
+                  <span style={{ display: "block" }}>Build with</span>
+                  <span style={{ display: "block" }}>Ardhiansyah</span>
                 </h2>
               </SectionReveal>
               <SectionReveal delay={0.2}>
