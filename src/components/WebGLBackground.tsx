@@ -338,20 +338,19 @@ void main() {
   // Height-based color zones
   float h = vHeight;
 
-  // Color layers
-  vec3 waterColor = vec3(0.02, 0.06, 0.12);
-  vec3 lowColor = vec3(0.08, 0.12, 0.10);       // dark earth
-  vec3 grassColor = vec3(0.15, 0.25, 0.13);      // dark green
-  vec3 rockColor = vec3(0.28, 0.22, 0.18);       // brown rock
-  vec3 highRockColor = vec3(0.35, 0.30, 0.25);   // light rock
-  vec3 snowColor = vec3(0.72, 0.75, 0.78);       // snow
+  // Color layers — bright, differentiated
+  vec3 lowColor = vec3(0.06, 0.05, 0.04);       // dark earth
+  vec3 grassColor = vec3(0.18, 0.32, 0.12);      // vibrant green
+  vec3 rockColor = vec3(0.45, 0.35, 0.28);       // warm brown rock
+  vec3 highRockColor = vec3(0.55, 0.48, 0.38);   // light grey-brown
+  vec3 snowColor = vec3(0.82, 0.85, 0.88);       // bright snow
 
-  // Blend thresholds
-  float t1 = 0.02;
-  float t2 = 0.08;
-  float t3 = 0.25;
-  float t4 = 0.50;
-  float t5 = 0.75;
+  // Blend thresholds — adjusted for wider range
+  float t1 = 0.05;   // below = dark earth
+  float t2 = 0.15;   // grass zone
+  float t3 = 0.35;   // rock zone
+  float t4 = 0.60;   // high rock
+  float t5 = 0.80;   // snow
 
   // Base color
   vec3 col = lowColor;
@@ -394,19 +393,19 @@ void main() {
   // Higher slopes reveal rock underneath
   col = mix(col, rockColor, rockReveal * 0.4);
 
-  // Lighting
+  // Lighting — brighter
   vec3 lightDir = normalize(vec3(0.3, 0.8, 0.2));
-  float diff = max(0.15, dot(norm, lightDir));
-  float ambient = 0.35;
+  float diff = max(0.25, dot(norm, lightDir));
+  float ambient = 0.50;
   float lighting = ambient + (1.0 - ambient) * diff;
   col *= lighting;
 
   // Rim light (edge glow)
   vec3 viewDir = normalize(uCameraPos - vPosition);
   float rim = 1.0 - max(0.0, dot(norm, viewDir));
-  rim = smoothstep(0.4, 1.0, rim);
-  vec3 rimColor = vec3(0.3, 0.5, 0.7);
-  col += rim * rimColor * 0.15;
+  rim = smoothstep(0.3, 0.9, rim);
+  vec3 rimColor = vec3(0.4, 0.6, 0.8);
+  col += rim * rimColor * 0.25;
 
   // Fog (distance-based)
   float dist = length(vPosition - uCameraPos);
@@ -455,7 +454,7 @@ function TerrainModel({ dimRatio }: { dimRatio: number }) {
       const iz = Math.round(nz);
       const idx = Math.min(Math.max(iz, 0), segD) * (segW + 1) + Math.min(Math.max(ix, 0), segW);
 
-      const h = heights[idx] * 2.5 - 0.1;
+      const h = heights[idx] * 3.5 - 0.15;
       pos.setY(i, h);
       heightAttr[i] = h;
       minH = Math.min(minH, h);
