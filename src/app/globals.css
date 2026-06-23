@@ -430,6 +430,20 @@ body::before {
   background-size: 256px 256px;
 }
 
+/* ─── HEADER WRAPPER ─── */
+#site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#site-header__desktop {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+
 /* ─── MOBILE HEADER ─── */
 #site-header__mobile {
   display: none;
@@ -449,20 +463,6 @@ body::before {
     height: 20px;
     fill: var(--color-text);
   }
-}
-
-/* ─── HEADER WRAPPER ─── */
-#site-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-#site-header__desktop {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
 }
 
 /* ─── SELECTION ─── */
