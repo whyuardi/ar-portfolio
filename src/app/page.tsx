@@ -273,10 +273,8 @@ export default function Home() {
 
               <div className="projects-grid">
                 {projects.map((project, i) => (
-                  <SectionReveal key={project.title} delay={0.1 + i * 0.08}>
-                    <TiltCard
-                      className={`project-card ${project.featured ? "project-card--featured" : "project-card--regular"}`}
-                    >
+                  <SectionReveal key={project.title} delay={0.1 + i * 0.08} className={project.featured ? "project-card--featured" : "project-card--regular"}>
+                    <TiltCard className="project-card">
                       <div className="project-card-visual">
                         <div className="project-visual-gradient" style={{ background: project.gradient }}>
                           <div className="project-visual-icon">{project.icon}</div>
@@ -331,9 +329,9 @@ export default function Home() {
 
               <div className="bento-grid">
                 {techCategories.map((cat, i) => (
-                  <SectionReveal key={cat.name} delay={0.15 + i * 0.08}>
+                  <SectionReveal key={cat.name} delay={0.15 + i * 0.08} className={i === 0 ? "bento-card--wide" : ""}>
                     <div
-                      className={`bento-card ${i === 0 ? "bento-card--wide" : ""}`}
+                      className="bento-card"
                       style={{ "--glow-color": `${cat.color}10` } as React.CSSProperties}
                     >
                       <div
