@@ -1,17 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { ArrowRight, MapPin, At, GraduationCap, LinkedinLogo, GithubLogo } from "@phosphor-icons/react";
-
-const HeroScene = dynamic(() => import("./SectionScenes").then((m) => ({ default: m.HeroScene })), {
-  ssr: false,
-  loading: () => null,
-});
 
 export default function Hero() {
   return (
     <section id="hero" className="relative min-h-[100dvh] flex items-center overflow-hidden">
-      <HeroScene />
 
       <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/30 to-transparent z-[1]" />
 

@@ -15,7 +15,6 @@ import {
 
 const Preloader = dynamic(() => import("@/components/Preloader"), { ssr: false });
 const MinimalHeader = dynamic(() => import("@/components/MinimalHeader"), { ssr: false });
-const ScrollDots = dynamic(() => import("@/components/ScrollDots"), { ssr: false });
 const ScrollIndicator = dynamic(() => import("@/components/ScrollIndicator"), { ssr: false });
 
 // ─── DATA ───
@@ -141,7 +140,6 @@ export default function Home() {
     <>
       <Preloader />
       <MinimalHeader />
-      <ScrollDots />
       <ScrollIndicator />
 
       <div className="scroll-container">

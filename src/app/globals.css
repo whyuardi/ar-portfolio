@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #06060b;
-  --color-surface: #0c0c15;
-  --color-surface-elevated: #111122;
-  --color-border: #1a1a2e;
-  --color-border-hover: #252542;
-  --color-accent: #14d9c4;
-  --color-accent-dim: #10b8a6;
-  --color-accent-glow: rgba(20, 217, 196, 0.06);
-  --color-text: #e8e8ed;
-  --color-text-secondary: #a0a0b8;
-  --color-text-muted: #6b6b88;
+  --color-bg: #060c08;
+  --color-surface: #0a1a0f;
+  --color-surface-elevated: #0f2a1a;
+  --color-border: #1a3a2a;
+  --color-border-hover: #2a5a3a;
+  --color-accent: #4ade80;
+  --color-accent-dim: #22c55e;
+  --color-accent-glow: rgba(74, 222, 128, 0.08);
+  --color-text: #e8f0ea;
+  --color-text-secondary: #a0c0a8;
+  --color-text-muted: #5a8a6a;
   --radius: 14px;
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), "JetBrains Mono", monospace;
@@ -147,14 +147,14 @@ body::before {
 
 /* ─── TEXT GRADIENTS ─── */
 .text-gradient {
-  background: linear-gradient(135deg, var(--color-accent), #7c3aed, var(--color-accent));
+  background: linear-gradient(135deg, var(--color-accent), #2dd4bf, var(--color-accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .text-gradient-name {
-  background: linear-gradient(135deg, #14d9c4 0%, #7c3aed 50%, #f0c 100%);
+  background: linear-gradient(135deg, #4ade80 0%, #2dd4bf 50%, #14d9c4 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
