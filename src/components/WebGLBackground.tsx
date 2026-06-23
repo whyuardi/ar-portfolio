@@ -128,29 +128,33 @@ varying vec3 vPosition;
 void main() {
   vec3 pos = position;
 
+  // ─── FIX: PlaneGeometry is in XY plane (position.z = 0 for all vertices).
+  //      Use pos.y as the 2nd terrain dimension, NOT pos.z.
+  // ───
+
   // Layer 1: large slow waves (mountain ridges)
   float elevation = 0.0;
-  elevation += snoise(vec3(pos.x * 0.3 + uTime * 0.05,
-                           pos.z * 0.3,
-                           uTime * 0.03)) * 1.8;
+  elevation += snoise(vec3(pos.x * 0.25 + uTime * 0.04,
+                           pos.y * 0.25,
+                           uTime * 0.02)) * 2.5;
 
   // Layer 2: medium detail (rocky features)
-  elevation += snoise(vec3(pos.x * 0.8 + uTime * 0.08,
-                           pos.z * 0.8 + uTime * 0.04,
-                           uScrollProgress * 0.5)) * 0.6;
+  elevation += snoise(vec3(pos.x * 0.7 + uTime * 0.06,
+                           pos.y * 0.7 + uTime * 0.03,
+                           uScrollProgress * 0.4)) * 1.2;
 
   // Layer 3: fine detail
-  elevation += snoise(vec3(pos.x * 2.0,
-                           pos.z * 2.0 + uTime * 0.1,
-                           0.0)) * 0.15;
+  elevation += snoise(vec3(pos.x * 1.8,
+                           pos.y * 1.8 + uTime * 0.08,
+                           0.0)) * 0.3;
 
   // Clamp bottom (flat valleys)
-  elevation = max(elevation, -0.3);
+  elevation = max(elevation, -0.5);
 
-  // Scroll influence: terrain shifts/morphs saat scroll
-  elevation += uScrollProgress * 0.8;
+  // Scroll influence: terrain shifts/morphs
+  elevation += uScrollProgress * 1.2;
 
-  pos.y += elevation;
+  pos.z += elevation;
   vElevation = elevation;
   vPosition = pos;
 
@@ -168,28 +172,28 @@ varying vec3 vPosition;
 
 void main() {
   // Base: sangat gelap, hampir hitam
-  vec3 darkBase = vec3(0.02, 0.02, 0.04);
+  vec3 darkBase = vec3(0.015, 0.015, 0.03);
 
-  // Peak color: sedikit lebih terang di puncak tinggi
-  vec3 peakColor = vec3(0.12, 0.14, 0.22);
+  // Peak color: kebiruan di puncak tinggi
+  vec3 peakColor = vec3(0.08, 0.12, 0.25);
 
-  // Edge rim: subtle indigo/violet glow di ridge lines
-  vec3 rimColor = vec3(0.25, 0.22, 0.45);
+  // Edge rim: vibrant violet glow di ridge lines
+  vec3 rimColor = vec3(0.35, 0.28, 0.55);
 
   // Blend berdasarkan elevation
-  float elevNorm = clamp(vElevation / 2.0, 0.0, 1.0);
+  float elevNorm = clamp(vElevation / 3.5, 0.0, 1.0);
   vec3 color = mix(darkBase, peakColor, elevNorm);
 
   // Rim light di puncak tertinggi
-  float rimFactor = smoothstep(0.7, 1.0, elevNorm);
-  color = mix(color, rimColor, rimFactor * 0.6);
+  float rimFactor = smoothstep(0.5, 0.9, elevNorm);
+  color = mix(color, rimColor, rimFactor * 0.7);
 
-  // Atmospheric depth (lebih fade di kejauhan)
-  float depth = clamp(vPosition.z / 6.0 + 0.5, 0.0, 1.0);
-  color *= 0.6 + depth * 0.4;
+  // Atmospheric depth (fade distant areas)
+  float depth = clamp(abs(vPosition.x) / 5.0, 0.0, 1.0);
+  color *= 0.5 + depth * 0.5;
 
   // Subtle time-based shimmer di peaks
-  float shimmer = sin(uTime * 2.0 + vElevation * 8.0) * 0.02;
+  float shimmer = sin(uTime * 3.0 + vElevation * 10.0) * 0.03 + cos(uTime * 1.7 + vPosition.x * 2.0) * 0.02;
   color += shimmer * rimFactor;
 
   gl_FragColor = vec4(color, 0.85);
@@ -237,9 +241,9 @@ function TerrainMesh() {
   // ─── Wireframe geometry ───
   const wireGeo = useMemo(() => new THREE.WireframeGeometry(geometry), [geometry]);
   const wireMat = useMemo(() => new THREE.LineBasicMaterial({
-    color: 0x2a2a4a,
+    color: 0x3a3a6a,
     transparent: true,
-    opacity: 0.06,
+    opacity: 0.15,
   }), []);
 
   // ─── Track mouse ───
