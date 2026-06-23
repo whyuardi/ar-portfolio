@@ -430,6 +430,34 @@ body::before {
   background-size: 256px 256px;
 }
 
+/* ─── MOBILE HEADER ─── */
+#site-header__mobile {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  #site-header__desktop {
+    display: none;
+  }
+  #site-header__mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  #site-header__mobile-logo svg {
+    height: 20px;
+    fill: var(--color-text);
+  }
+}
+
+/* ─── HEADER WRAPPER ─── */
+#site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 /* ─── SELECTION ─── */
 ::selection {
   background: var(--color-text);
