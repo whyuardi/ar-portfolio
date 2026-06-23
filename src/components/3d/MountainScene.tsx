@@ -284,6 +284,31 @@ function Particles() {
   )
 }
 
+// ─── SIMPLE TEST SCENE ───
+function TestObject() {
+  const ref = useRef<THREE.Mesh>(null!)
+
+  useFrame(({ clock }) => {
+    if (ref.current) {
+      ref.current.rotation.x = clock.getElapsedTime() * 0.5
+      ref.current.rotation.y = clock.getElapsedTime() * 0.3
+    }
+  })
+
+  return (
+    <mesh ref={ref} position={[0, 0, 0]}>
+      <torusKnotGeometry args={[1, 0.3, 64, 8]} />
+      <meshPhysicalMaterial
+        color="#00ff88"
+        metalness={0.7}
+        roughness={0.2}
+        emissive="#00ff88"
+        emissiveIntensity={0.3}
+      />
+    </mesh>
+  )
+}
+
 // ─── MAIN SCENE ───
 export default function MountainScene() {
   return (
@@ -295,24 +320,21 @@ export default function MountainScene() {
         }}
         camera={{
           fov: 45,
-          position: [0, 4, 8],
+          position: [0, 0, 5],
           near: 0.1,
           far: 50,
         }}
         style={{ background: 'transparent' }}
       >
-        <ambientLight intensity={0.3} />
-        <directionalLight position={[5, 10, 5]} intensity={0.6} color="#ffd4a0" />
-        <directionalLight position={[-3, 5, -2]} intensity={0.2} color="#80ffcc" />
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 5, 5]} intensity={0.8} color="#ffffff" />
 
-        <Terrain />
-        <Bird />
-        <Particles />
+        <TestObject />
 
         <EffectComposer>
           <Bloom
-            intensity={0.3}
-            luminanceThreshold={0.6}
+            intensity={0.5}
+            luminanceThreshold={0.2}
             luminanceSmoothing={0.5}
           />
         </EffectComposer>
