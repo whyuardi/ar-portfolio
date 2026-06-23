@@ -422,79 +422,53 @@ void main() {
 // ─── PROCEDURAL TERRAIN ───
 function TerrainModel({ dimRatio }: { dimRatio: number }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const heightmapRef = useRef<Float32Array | null>(null);
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
 
   // Pre-generate heightmap + geometry
   const geometry = useMemo(() => {
-    const segW = 180;
-    const segD = 180;
-    const sizeW = 18;
-    const sizeD = 14;
+    const segW = 150;
+    const segD = 150;
+    const sizeW = 20;
+    const sizeD = 16;
 
     const geo = new THREE.PlaneGeometry(sizeW, sizeD, segW, segD);
     geo.rotateX(-Math.PI / 2);
 
     const heights = generateHeightmap(segW, segD);
-    heightmapRef.current = heights;
-
     const pos = geo.attributes.position;
-    const heightAttr = new Float32Array(pos.count);
-
-    let minH = Infinity;
-    let maxH = -Infinity;
 
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-
-      // Map world position to heightmap index
       const nx = (x / sizeW + 0.5) * segW;
       const nz = (z / sizeD + 0.5) * segD;
       const ix = Math.round(nx);
       const iz = Math.round(nz);
       const idx = Math.min(Math.max(iz, 0), segD) * (segW + 1) + Math.min(Math.max(ix, 0), segW);
-
-      const h = heights[idx] * 3.5 - 0.15;
+      const h = heights[idx] * 4.0 - 0.2;
       pos.setY(i, h);
-      heightAttr[i] = h;
-      minH = Math.min(minH, h);
-      maxH = Math.max(maxH, h);
     }
 
-    // Normalize heights for shader
-    const range = maxH - minH;
-    for (let i = 0; i < pos.count; i++) {
-      heightAttr[i] = (heightAttr[i] - minH) / range;
-    }
-
-    geo.setAttribute("aHeight", new THREE.BufferAttribute(heightAttr, 1));
-    geo.computeVertexNormals();
     pos.needsUpdate = true;
-
+    geo.computeVertexNormals();
     return geo;
   }, []);
 
-  const uniforms = useMemo(
-    () => ({
-      uDimRatio: { value: 0 },
-      uCameraPos: { value: new THREE.Vector3(0, 0, 0) },
-    }),
-    []
-  );
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      uniforms.uDimRatio.value = dimRatio;
-      uniforms.uCameraPos.value.copy(state.camera.position);
+  useFrame(() => {
+    if (materialRef.current) {
+      materialRef.current.opacity = 1 - dimRatio * 0.7;
+      materialRef.current.transparent = true;
     }
   });
 
   return (
-    <mesh ref={meshRef} geometry={geometry} position={[0, -4.5, -7]}>
-      <shaderMaterial
-        vertexShader={terrainVertShader}
-        fragmentShader={terrainFragShader}
-        uniforms={uniforms}
+    <mesh ref={meshRef} geometry={geometry} position={[0, -4.5, -7]} renderOrder={0}>
+      <meshStandardMaterial
+        ref={materialRef}
+        color="#4a7a4a"
+        roughness={0.7}
+        metalness={0.1}
+        flatShading={true}
         side={THREE.DoubleSide}
       />
     </mesh>
