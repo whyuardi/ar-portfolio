@@ -26,12 +26,6 @@ export default function MinimalHeader() {
             </svg>
           </a>
         </div>
-        <a href="#home-pool" className="button is-transparent">
-          <span>Hire Me</span>
-          <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M1 13L13 1M13 1H3M13 1V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </a>
       </div>
 
       {/* Mobile */}
@@ -44,12 +38,6 @@ export default function MinimalHeader() {
             </svg>
           </a>
         </div>
-        <a href="#home-pool" className="button is-transparent" id="site-header__mobile-cta">
-          <span>Hire Me</span>
-          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M1 13L13 1M13 1H3M13 1V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </a>
       </div>
     </header>
   );

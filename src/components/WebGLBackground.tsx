@@ -2,135 +2,13 @@
 
 import { useRef, useState, useEffect, useMemo, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
 import {
   EffectComposer,
   Bloom,
 } from "@react-three/postprocessing";
 import * as THREE from "three";
 
-// ─── SIMPLEX NOISE VERTEX SHADER (Mountain Terrain) ───
-const terrainVertShader = `
-uniform float uTime;
-varying float vElevation;
-varying vec2 vUv;
-varying vec3 vWorldPos;
-
-float hash(vec2 p) {
-  p = fract(p * vec2(5.3983, 5.4427));
-  p += dot(p.yx, p.xy + vec2(21.5351, 14.3137));
-  return fract(p.x * p.y * 95.4337);
-}
-
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  
-  float a = hash(i + vec2(0.0, 0.0));
-  float b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0));
-  float d = hash(i + vec2(1.0, 1.0));
-  
-  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-}
-
-float fbm(vec2 p, float t) {
-  float n = 0.0;
-  
-  // Octave 1 - main shape
-  float h1 = noise(p * 0.03 + vec2(t * 0.03, t * 0.015));
-  float r1 = 1.0 - abs(h1 * 2.0 - 1.0);
-  n += r1 * r1 * 5.0;
-  
-  // Octave 2 - detail
-  float h2 = noise(p * 0.07 - vec2(t * 0.015, t * 0.03));
-  float r2 = 1.0 - abs(h2 * 2.0 - 1.0);
-  n += r2 * r2 * 2.5;
-  
-  // Octave 3 - fine cracks
-  float h3 = noise(p * 0.15 + vec2(0.0, t * 0.05));
-  float r3 = 1.0 - abs(h3 * 2.0 - 1.0);
-  n += r3 * r3 * 1.0;
-  
-  // Offset to have both valleys (negative) and mountains (positive)
-  return n - 3.2;
-}
-
-void main(){
-  vec3 pos = position;
-  float t = uTime * 0.8;
-  
-  float elevation = fbm(pos.xy, t);
-  
-  // Mountain-like shape: more elevation in center
-  float dist = length(pos.xy) * 0.08;
-  elevation *= max(0.0, 1.0 - dist * 0.3);
-  
-  pos.z += elevation;
-  vElevation = elevation;
-  vUv = uv;
-  vWorldPos = pos;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-}
-`;
-
-const terrainFragShader = `
-uniform vec3 uSkyColor0;
-uniform vec3 uSkyColor1;
-uniform float uFogNear;
-uniform float uFogFar;
-uniform float uDimRatio;
-varying float vElevation;
-varying vec2 vUv;
-varying vec3 vWorldPos;
-
-void main(){
-  // Compute normal from derivatives for a faceted, stylized 3D look
-  vec3 dx = dFdx(vWorldPos);
-  vec3 dy = dFdy(vWorldPos);
-  vec3 normal = normalize(cross(dx, dy));
-  
-  // Directional lighting from top-right-front
-  vec3 lightDir = normalize(vec3(1.0, 1.2, 0.8));
-  float diffuse = max(0.0, dot(normal, lightDir));
-  
-  // Wrap diffuse lighting slightly to give a soft, painted look (typical of stylized shaders)
-  diffuse = diffuse * 0.5 + 0.5;
-
-  // Elevation-based coloring (ridge-like)
-  vec3 lowColor = mix(vec3(0.08, 0.15, 0.12), vec3(0.02, 0.04, 0.03), uDimRatio); // deep dark green-blue
-  vec3 midColor = mix(vec3(0.20, 0.35, 0.22), vec3(0.04, 0.08, 0.05), uDimRatio); // mid moss green
-  vec3 highColor = mix(vec3(0.42, 0.58, 0.30), vec3(0.09, 0.14, 0.07), uDimRatio); // bright yellow-green
-  vec3 peakColor = mix(vec3(0.68, 0.76, 0.45), vec3(0.15, 0.20, 0.11), uDimRatio); // sunny peaks
-  
-  float e = vElevation;
-  vec3 col;
-  if(e < -0.5) col = lowColor;
-  else if(e < 0.5) { float t = (e + 0.5) / 1.0; col = mix(lowColor, midColor, t); }
-  else if(e < 1.5) { float t = (e - 0.5) / 1.0; col = mix(midColor, highColor, t); }
-  else { float t = clamp((e - 1.5) / 1.5, 0.0, 1.0); col = mix(highColor, peakColor, t); }
-  
-  // Apply lighting
-  col *= diffuse;
-  
-  // Add blueish ambient light reflection from the sky
-  col += mix(vec3(0.03, 0.06, 0.12), vec3(0.0), uDimRatio) * (normal.z * 0.5 + 0.5);
-  
-  // Add a soft glowing atmosphere/fog at the bottom of the valleys
-  float valleyFog = smoothstep(1.5, -1.0, vElevation);
-  col = mix(col, mix(vec3(0.15, 0.25, 0.35), vec3(0.04, 0.06, 0.08), uDimRatio), valleyFog * 0.45);
-  
-  // Fog - fade to transparent at edges
-  float fogDist = length(vUv - 0.5) * 2.0;
-  float fogAlpha = 1.0 - clamp(fogDist * 0.8, 0.0, 1.0);
-  fogAlpha = pow(fogAlpha, 0.6); // softer falloff
-  
-  // Fade out terrain more as dim ratio increases (scroll down)
-  fogAlpha *= mix(1.0, 0.15, uDimRatio);
-  
-  gl_FragColor = vec4(col, fogAlpha);
-}
-`;
 
 // ─── SKY DOME SHADERS ───
 const skyVertShader = `
@@ -312,98 +190,54 @@ void main() {
 }
 `;
 
-const wireFragShader = `
-uniform float uDimRatio;
-varying vec2 vUv;
-varying float vElevation;
+// ─── GLB TERRAIN MODEL (dari Blender) ───
+function TerrainModel({ dimRatio }: { dimRatio: number }) {
+  const { scene } = useGLTF("/terrain.glb");
+  const meshRef = useRef<THREE.Group>(null);
 
-void main() {
-  vec3 col = vec3(0.2, 0.85, 0.55); // neon cyan-green glow
-  
-  float fogDist = length(vUv - 0.5) * 2.0;
-  float alpha = 1.0 - clamp(fogDist * 0.85, 0.0, 1.0);
-  alpha = pow(alpha, 1.2) * 0.12 * (1.0 - uDimRatio * 0.6);
-  
-  gl_FragColor = vec4(col, alpha);
-}
-`;
+  // Clone + optimize materials
+  const cloned = useMemo(() => {
+    const copy = scene.clone();
+    copy.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.material = child.material.clone();
+        const mat = child.material as THREE.MeshStandardMaterial;
+        // Boost greens, add wet look
+        const hsl = new THREE.Color();
+        hsl.copy(mat.color);
+        const h = hsl.getHSL({ h: 0, s: 0, l: 0 });
+        hsl.setHSL(h.h, Math.min(h.s * 1.2, 1), Math.min(h.l * 1.1, 1));
+        mat.color.copy(hsl);
+        mat.metalness = 0.2;
+        mat.roughness = 0.65;
+        mat.envMapIntensity = 0.4;
+        mat.needsUpdate = true;
+      }
+    });
+    return copy;
+  }, [scene]);
 
-// ─── MOUNTAIN TERRAIN MESH ───
-function TerrainMesh({ dimRatio }: { dimRatio: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const matRef = useRef<THREE.ShaderMaterial>(null);
-  const matWireRef = useRef<THREE.ShaderMaterial>(null);
-  const clockRef = useRef(0);
-
-  const SKY_0 = useMemo(() => new THREE.Color("#1a2a35"), []);
-  const SKY_1 = useMemo(() => new THREE.Color("#0d1520"), []);
-  const DIMMED_0 = useMemo(() => new THREE.Color("#0a0e14"), []);
-  const DIMMED_1 = useMemo(() => new THREE.Color("#06080c"), []);
-
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uSkyColor0: { value: new THREE.Color("#1a2a35") },
-      uSkyColor1: { value: new THREE.Color("#0d1520") },
-      uFogNear: { value: 1800 },
-      uFogFar: { value: 2500 },
-      uDimRatio: { value: 0 },
-    }),
-    []
-  );
-
-  const geo = useMemo(() => new THREE.PlaneGeometry(24, 24, 128, 128), []);
-
-  useFrame((_, delta) => {
-    clockRef.current += delta;
-    if (matRef.current) {
-      matRef.current.uniforms.uTime.value = clockRef.current;
-      matRef.current.uniforms.uDimRatio.value = dimRatio;
-      matRef.current.uniforms.uSkyColor0.value
-        .copy(SKY_0)
-        .lerp(DIMMED_0, dimRatio);
-      matRef.current.uniforms.uSkyColor1.value
-        .copy(SKY_1)
-        .lerp(DIMMED_1, dimRatio);
-    }
-    if (matWireRef.current) {
-      matWireRef.current.uniforms.uTime.value = clockRef.current;
-      matWireRef.current.uniforms.uDimRatio.value = dimRatio;
-    }
-    
-    const rotX = -Math.PI / 3.5;
+  useFrame(() => {
     if (meshRef.current) {
-      meshRef.current.rotation.x = rotX;
+      // Dim scroll effect
+      meshRef.current.children.forEach((child) => {
+        if (child instanceof THREE.Mesh) {
+          const mat = child.material as THREE.MeshStandardMaterial;
+          mat.opacity = 1 - dimRatio * 0.7;
+          mat.transparent = true;
+        }
+      });
     }
   });
 
   return (
-    <group>
-      {/* 🏔️ Terrain (Solid) */}
-      <mesh ref={meshRef} geometry={geo} position={[0, -1.2, 0]} scale={[2.0, 2.0, 2.0]} frustumCulled={false}>
-        <shaderMaterial
-          ref={matRef}
-          vertexShader={terrainVertShader}
-          fragmentShader={terrainFragShader}
-          uniforms={uniforms}
-          side={THREE.DoubleSide}
-          transparent={true}
-        />
-      </mesh>
-
-      {/* 🟩 Wireframe Overlay */}
-      <mesh geometry={geo} position={[0, -1.19, 0]} scale={[2.0, 2.0, 2.0]} rotation={[-Math.PI / 3.5, 0, 0]} frustumCulled={false}>
-        <shaderMaterial
-          ref={matWireRef}
-          vertexShader={terrainVertShader}
-          fragmentShader={wireFragShader}
-          uniforms={uniforms}
-          side={THREE.DoubleSide}
-          transparent={true}
-          wireframe={true}
-          depthWrite={false}
-        />
-      </mesh>
+    <group ref={meshRef}>
+      <primitive
+        object={cloned}
+        scale={3.5}
+        position={[0, -4, -8]}
+        rotation={[0, Math.PI * 0.15, 0]}
+      />
     </group>
   );
 }
@@ -876,7 +710,7 @@ function Scene({
       <pointLight position={[0, 5, 0]} intensity={0.15} color="#5588aa" />
 
       <SkyDome dimRatio={dimRatio.current} />
-      <TerrainMesh dimRatio={dimRatio.current} />
+      <TerrainModel dimRatio={dimRatio.current} />
       <WaterLake dimRatio={dimRatio.current} />
       <LightTrails dimRatio={dimRatio.current} />
       <LightBeams dimRatio={dimRatio.current} />
