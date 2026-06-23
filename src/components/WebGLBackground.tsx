@@ -3,18 +3,12 @@
 import { useRef, useState, useEffect, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
-  Environment,
-  Float,
-  MeshDistortMaterial,
-} from "@react-three/drei";
-import {
   EffectComposer,
   Bloom,
 } from "@react-three/postprocessing";
 import * as THREE from "three";
 
-// ─── Simplex Noise GLSL (ashima/webgl-noise) — for vertex animation ───
-// This is injected into the custom shader for organic distortion
+// ─── Simplex Noise GLSL (ashima/webgl-noise) — snoise(vec3) ───
 const NOISE_3D = `//
 // Description : Array and textureless GLSL 2D/3D/4D simplex
 //               noise functions.
@@ -59,13 +53,9 @@ float snoise(vec3 v)
   vec3 i1 = min( g.xyz, l.zxy );
   vec3 i2 = max( g.xyz, l.zxy );
 
-  //   x0 = x0 - 0.0 + 0.0 * C.xxx;
-  //   x1 = x0 - i1  + 1.0 * C.xxx;
-  //   x2 = x0 - i2  + 2.0 * C.xxx;
-  //   x3 = x0 - 1.0 + 3.0 * C.xxx;
   vec3 x1 = x0 - i1 + C.xxx;
-  vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
-  vec3 x3 = x0 - D.yyy;      // -1.0+3.0*C.x = -0.5 = -D.y
+  vec3 x2 = x0 - i2 + C.yyy;
+  vec3 x3 = x0 - D.yyy;
 
 // Permutations
   i = mod289(i);
@@ -75,14 +65,13 @@ float snoise(vec3 v)
            + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
 
 // Gradients: 7x7 points over a square, mapped onto an octahedron.
-// The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
-  float n_ = 0.142857142857; // 1.0/7.0
+  float n_ = 0.142857142857;
   vec3  ns = n_ * D.wyz - D.xzx;
 
-  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);  //  mod(p,7*7)
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
 
   vec4 x_ = floor(j * ns.z);
-  vec4 y_ = floor(j - 7.0 * x_ );    // mod(j,N)
+  vec4 y_ = floor(j - 7.0 * x_ );
 
   vec4 x = x_ *ns.x + ns.yyyy;
   vec4 y = y_ *ns.x + ns.yyyy;
@@ -91,8 +80,6 @@ float snoise(vec3 v)
   vec4 b0 = vec4( x.xy, y.xy );
   vec4 b1 = vec4( x.zw, y.zw );
 
-  //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
-  //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
   vec4 s0 = floor(b0)*2.0 + 1.0;
   vec4 s1 = floor(b1)*2.0 + 1.0;
   vec4 sh = -step(h, vec4(0.0));
@@ -105,14 +92,12 @@ float snoise(vec3 v)
   vec3 p2 = vec3(a1.xy,h.z);
   vec3 p3 = vec3(a1.zw,h.w);
 
-//Normalise gradients
   vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
   p0 *= norm.x;
   p1 *= norm.y;
   p2 *= norm.z;
   p3 *= norm.w;
 
-// Mix final noise value
   vec4 m = max(0.5 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
   m = m * m;
   return 105.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
@@ -120,264 +105,251 @@ float snoise(vec3 v)
   }
 `;
 
-// ─── Vertex Shader with noise displacement ───
+// ─── Vertex Shader ───
+// NOTE: PlaneGeometry is in the XY plane (position.z = 0 for all verts).
+// We use pos.y for the 2nd noise dimension (so noise varies in 2D across the plane),
+// then displace along pos.y for height.
 const VERTEX_SHADER = `
 ${NOISE_3D}
 
 uniform float uTime;
-uniform float uDistort;
+uniform float uScrollProgress;
 
-varying float vNoise;
+varying float vElevation;
+varying vec3 vPosition;
 
 void main() {
   vec3 pos = position;
 
-  // Organic noise displacement — subtle pulse
-  float noiseVal = snoise(vec3(pos.x * 1.5 + uTime * 0.3,
-                               pos.y * 1.5 + uTime * 0.2,
-                               pos.z * 1.5 + uTime * 0.25));
+  // ─── FIX: PlaneGeometry is XY-plane → position.z = 0 for ALL verts.
+  //      Use pos.y as 2nd noise dimension, NOT pos.z.
+  // ───
 
-  // Displace along normal
-  pos += normal * noiseVal * uDistort * 0.15;
+  // Layer 1: large slow waves (mountain ridges)
+  float elevation = 0.0;
+  elevation += snoise(vec3(pos.x * 0.3 + uTime * 0.05,
+                           pos.y * 0.3,
+                           uTime * 0.03)) * 1.8;
 
-  vNoise = noiseVal;
+  // Layer 2: medium detail (rocky features)
+  elevation += snoise(vec3(pos.x * 0.8 + uTime * 0.08,
+                           pos.y * 0.8 + uTime * 0.04,
+                           uScrollProgress * 0.5)) * 0.6;
+
+  // Layer 3: fine detail
+  elevation += snoise(vec3(pos.x * 2.0,
+                           pos.y * 2.0 + uTime * 0.1,
+                           0.0)) * 0.15;
+
+  // Clamp bawah (bikin flat valley)
+  elevation = max(elevation, -0.3);
+
+  // Scroll influence: terrain shifts/morphs saat scroll
+  elevation += uScrollProgress * 0.8;
+
+  pos.y += elevation;
+  vElevation = elevation;
+  vPosition = pos;
 
   gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
 }
 `;
 
+// ─── Fragment Shader ───
 const FRAGMENT_SHADER = `
 uniform float uTime;
+uniform float uScrollProgress;
 
-varying float vNoise;
+varying float vElevation;
+varying vec3 vPosition;
 
 void main() {
-  // Soft shimmer based on noise value
-  float glow = 0.5 + 0.5 * vNoise;
-  gl_FragColor = vec4(vec3(glow * 0.3, glow * 0.35, glow * 0.5), 0.9);
+  // Base: sangat gelap, hampir hitam
+  vec3 darkBase = vec3(0.02, 0.02, 0.04);
+
+  // Peak color: sedikit lebih terang di puncak tinggi
+  vec3 peakColor = vec3(0.12, 0.14, 0.22);
+
+  // Edge rim: subtle indigo/violet glow di ridge lines
+  vec3 rimColor = vec3(0.25, 0.22, 0.45);
+
+  // Blend berdasarkan elevation
+  float elevNorm = clamp(vElevation / 2.0, 0.0, 1.0);
+  vec3 color = mix(darkBase, peakColor, elevNorm);
+
+  // Rim light di puncak tertinggi
+  float rimFactor = smoothstep(0.7, 1.0, elevNorm);
+  color = mix(color, rimColor, rimFactor * 0.6);
+
+  // Atmospheric depth (lebih fade di kejauhan)
+  float depth = clamp(vPosition.z / 6.0 + 0.5, 0.0, 1.0);
+  color *= 0.6 + depth * 0.4;
+
+  // Subtle time-based shimmer di peaks
+  float shimmer = sin(uTime * 2.0 + vElevation * 8.0) * 0.02;
+  color += shimmer * rimFactor;
+
+  gl_FragColor = vec4(color, 0.85);
 }
 `;
 
-// ─── Section → camera position ───
+// ─── Section → Camera position mapping ───
 type CamState = { x: number; y: number; z: number };
 const sectionCameras: Record<string, CamState> = {
-  hero:       { x: 0,  y: 0.5, z: 5.5 },
-  about:      { x: -0.8, y: 1,  z: 6 },
-  projects:   { x: 0,  y: 0.2, z: 4.5 },
-  stack:      { x: 0.8, y: 0.5, z: 7 },
-  experience: { x: -0.3, y: 0.8, z: 6 },
-  contact:    { x: 0,  y: 0.3, z: 5 },
+  hero:       { x: 0,  y: 2,   z: 8 },
+  about:      { x: -1, y: 2.5, z: 7 },
+  projects:   { x: 0,  y: 3,   z: 6 },
+  toolkit:    { x: 1,  y: 1.5, z: 9 },
+  background: { x: 0,  y: 2,   z: 7.5 },
 };
 
-// ─── Main Icosahedron ───
-function MainIcosahedron({ scrollProgress }: { scrollProgress: number }) {
+// ─── Terrain Mesh ───
+function TerrainMesh({ cameraTargetRef, scrollProgressRef }: {
+  cameraTargetRef: React.MutableRefObject<CamState>;
+  scrollProgressRef: React.MutableRefObject<number>;
+}) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
-  const targetScale = useRef(1);
-  const targetY = useRef(0);
-
-  useFrame((state, delta) => {
-    if (!meshRef.current || !materialRef.current) return;
-    const d = Math.min(delta, 0.1);
-
-    // Time uniform for noise animation
-    materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-
-    // Distort increases with scroll
-    const distortTarget = scrollProgress * 1.2;
-    materialRef.current.uniforms.uDistort.value +=
-      (distortTarget - materialRef.current.uniforms.uDistort.value) * 0.03;
-
-    // Scroll-driven scale down + translate up
-    const scaleTarget = 1 - scrollProgress * 0.5;
-    const yTarget = scrollProgress * 0.8;
-
-    const lerp = 1 - Math.exp(-d * 3);
-    const s = meshRef.current.scale.x + (scaleTarget - meshRef.current.scale.x) * lerp;
-    meshRef.current.scale.setScalar(s);
-    meshRef.current.position.y += (yTarget - meshRef.current.position.y) * lerp;
-
-    // Slow rotation
-    meshRef.current.rotation.x += d * 0.15;
-    meshRef.current.rotation.y += d * 0.2;
+  const uniformsRef = useRef({
+    uTime: { value: 0 },
+    uScrollProgress: { value: 0 },
   });
+  const mouseRef = useRef({ x: 0, y: 0 });
 
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uDistort: { value: 0 },
-    }),
-    [],
-  );
+  // ─── Geometry (useMemo — jangan buat baru tiap render) ───
+  const geometry = useMemo(() => new THREE.PlaneGeometry(12, 12, 180, 180), []);
 
-  const material = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        uniforms,
-        vertexShader: VERTEX_SHADER,
-        fragmentShader: FRAGMENT_SHADER,
-        transparent: true,
-        wireframe: false,
-        side: THREE.DoubleSide,
-      }),
-    [],
-  );
-
-  return (
-    <mesh ref={meshRef} position={[0, 0, 0]}>
-      <icosahedronGeometry args={[1.8, 2]} />
-      <primitive object={material} attach="material" />
-    </mesh>
-  );
-}
-
-// ─── Glass Icosahedron (outer shell, everswap-style) ───
-function GlassShell({ scrollProgress }: { scrollProgress: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state, delta) => {
-    if (!meshRef.current) return;
-    const d = Math.min(delta, 0.1);
-
-    // Match main icosahedron scaling
-    const scaleTarget = 1 - scrollProgress * 0.5;
-    const yTarget = scrollProgress * 0.8;
-    const lerp = 1 - Math.exp(-d * 3);
-    const s = meshRef.current.scale.x + (scaleTarget - meshRef.current.scale.x) * lerp;
-    meshRef.current.scale.setScalar(s * 1.08);
-    meshRef.current.position.y += (yTarget - meshRef.current.position.y) * lerp;
-
-    meshRef.current.rotation.x += d * 0.12;
-    meshRef.current.rotation.y += d * 0.18;
-  });
-
-  return (
-    <mesh ref={meshRef} position={[0, 0, 0]}>
-      <icosahedronGeometry args={[1.8, 0]} />
-      <meshPhysicalMaterial
-        color="#4488cc"
-        metalness={0.95}
-        roughness={0.05}
-        transparent
-        opacity={0.12}
-        wireframe
-        envMapIntensity={0.4}
-      />
-    </mesh>
-  );
-}
-
-// ─── Orbiting small icosahedrons ───
-function Orbiters() {
-  const ref1 = useRef<THREE.Mesh>(null);
-  const ref2 = useRef<THREE.Mesh>(null);
-
-  useFrame((state, delta) => {
-    const t = state.clock.elapsedTime;
-    if (ref1.current) {
-      const angle = t * 0.4;
-      ref1.current.position.x = Math.cos(angle) * 2.8;
-      ref1.current.position.z = Math.sin(angle) * 2.8;
-      ref1.current.position.y = Math.sin(t * 0.3) * 0.4;
-      ref1.current.rotation.x += delta * 0.3;
-      ref1.current.rotation.y += delta * 0.5;
-    }
-    if (ref2.current) {
-      const angle = t * 0.3 + Math.PI;
-      ref2.current.position.x = Math.cos(angle) * 2.2;
-      ref2.current.position.z = Math.sin(angle) * 2.2;
-      ref2.current.position.y = Math.sin(t * 0.25 + 1) * 0.3;
-      ref2.current.rotation.x += delta * 0.4;
-      ref2.current.rotation.y += delta * 0.3;
-    }
-  });
-
-  return (
-    <>
-      <mesh ref={ref1}>
-        <icosahedronGeometry args={[0.25, 0]} />
-        <meshPhysicalMaterial
-          color="#66aaff"
-          metalness={0.9}
-          roughness={0.1}
-          transparent
-          opacity={0.6}
-        />
-      </mesh>
-      <mesh ref={ref2}>
-        <icosahedronGeometry args={[0.18, 0]} />
-        <meshPhysicalMaterial
-          color="#ff66aa"
-          metalness={0.8}
-          roughness={0.15}
-          transparent
-          opacity={0.5}
-        />
-      </mesh>
-    </>
-  );
-}
-
-// ─── Particle system ───
-function Particles() {
-  const ref = useRef<THREE.Points>(null);
-  const count = 800;
-
-  const positions = useMemo(() => {
-    const p = new Float32Array(count * 3);
-    for (let i = 0; i < count * 3; i++) {
-      p[i] = (Math.random() - 0.5) * 20;
-    }
-    return p;
+  // ─── ShaderMaterial (useMemo) ───
+  const material = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: uniformsRef.current,
+      vertexShader: VERTEX_SHADER,
+      fragmentShader: FRAGMENT_SHADER,
+      transparent: true,
+      side: THREE.DoubleSide,
+      wireframe: false,
+    });
   }, []);
 
+  // ─── Wireframe overlay ───
+  const wireGeo = useMemo(() => new THREE.WireframeGeometry(geometry), [geometry]);
+  const wireMat = useMemo(() => new THREE.LineBasicMaterial({
+    color: 0x2a2a4a,
+    transparent: true,
+    opacity: 0.06,
+  }), []);
+
+  // ─── Track mouse ───
+  useEffect(() => {
+    const handleMouse = (e: MouseEvent) => {
+      mouseRef.current = {
+        x: (e.clientX / window.innerWidth - 0.5) * 2,
+        y: -(e.clientY / window.innerHeight - 0.5) * 2,
+      };
+    };
+    window.addEventListener("mousemove", handleMouse, { passive: true });
+    return () => window.removeEventListener("mousemove", handleMouse);
+  }, []);
+
+  // ─── Dispose on unmount ───
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      material.dispose();
+      wireGeo.dispose();
+      wireMat.dispose();
+    };
+  }, [geometry, material, wireGeo, wireMat]);
+
+  // ─── Frame loop ───
   useFrame((state, delta) => {
-    if (ref.current) {
-      ref.current.rotation.y += delta * 0.02;
-    }
+    const d = Math.min(delta, 0.1);
+
+    // Update time uniform
+    uniformsRef.current.uTime.value = state.clock.elapsedTime;
+
+    // Smooth scroll progress (lerp)
+    uniformsRef.current.uScrollProgress.value +=
+      (scrollProgressRef.current - uniformsRef.current.uScrollProgress.value) * 0.03;
+
+    // Camera lerp to target + mouse offset
+    const target = cameraTargetRef.current;
+    const mouseOffX = mouseRef.current.x * 0.5;
+    const mouseOffY = mouseRef.current.y * 0.3;
+
+    const lerpFactor = 0.025;
+    state.camera.position.x += (target.x + mouseOffX - state.camera.position.x) * lerpFactor;
+    state.camera.position.y += (target.y + mouseOffY - state.camera.position.y) * lerpFactor;
+    state.camera.position.z += (target.z - state.camera.position.z) * lerpFactor;
+
+    state.camera.lookAt(0, 0, 0);
   });
 
   return (
-    <points ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          args={[positions, 3]}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.02}
-        color="#4488cc"
-        transparent
-        opacity={0.4}
-        sizeAttenuation
-      />
-    </points>
+    <group rotation={[-Math.PI / 2.4, 0, 0]} position={[0, -1.5, 0]}>
+      <mesh ref={meshRef} geometry={geometry} material={material} />
+      <lineSegments geometry={wireGeo} material={wireMat} />
+    </group>
   );
+}
+
+// ─── Track scroll progress & active section ───
+function useScrollManager(
+  cameraTargetRef: React.MutableRefObject<CamState>,
+  scrollProgressRef: React.MutableRefObject<number>,
+) {
+  useEffect(() => {
+    // Scroll progress
+    const handleScroll = () => {
+      const scrolled = window.scrollY;
+      const maxScroll = document.body.scrollHeight - window.innerHeight;
+      scrollProgressRef.current = maxScroll > 0 ? scrolled / maxScroll : 0;
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    // IntersectionObserver for section detection
+    const sections = Object.keys(sectionCameras);
+    const observers: IntersectionObserver[] = [];
+
+    sections.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const obs = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            const cam = sectionCameras[id];
+            cameraTargetRef.current = { ...cam };
+          }
+        },
+        { threshold: 0.3, rootMargin: "-20% 0px -20% 0px" },
+      );
+      obs.observe(el);
+      observers.push(obs);
+    });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      observers.forEach((o) => o.disconnect());
+    };
+  }, [cameraTargetRef]);
+
+  return scrollProgressRef;
 }
 
 // ─── Scene ───
-function Scene({ scrollProgress }: { scrollProgress: number }) {
+function Scene() {
+  const cameraTargetRef = useRef<CamState>({ x: 0, y: 2, z: 8 });
+  const scrollProgressRef = useRef(0);
+  useScrollManager(cameraTargetRef, scrollProgressRef);
+
   return (
     <>
-      <ambientLight intensity={0.3} />
-      {/* 3-point lighting */}
-      <directionalLight position={[5, 5, 5]} intensity={1.2} color="#4488ff" />
-      <directionalLight position={[-3, 1, -5]} intensity={0.6} color="#ff66aa" />
-      <directionalLight position={[0, -4, 3]} intensity={0.3} color="#44ff88" />
-
-      <Environment preset="city" />
-
-      <Particles />
-      <Orbiters />
-      <MainIcosahedron scrollProgress={scrollProgress} />
-      <GlassShell scrollProgress={scrollProgress} />
-
+      <ambientLight intensity={0.05} />
+      <TerrainMesh cameraTargetRef={cameraTargetRef} scrollProgressRef={scrollProgressRef} />
       <EffectComposer>
         <Bloom
-          luminanceThreshold={0.3}
-          luminanceSmoothing={0.85}
-          intensity={1.2}
+          luminanceThreshold={0.15}
+          luminanceSmoothing={0.9}
+          intensity={0.3}
           mipmapBlur
         />
       </EffectComposer>
@@ -388,19 +360,9 @@ function Scene({ scrollProgress }: { scrollProgress: number }) {
 // ─── Exported Component ───
 export default function WebGLBackground() {
   const [mounted, setMounted] = useState(false);
-  const scrollRef = useRef(0);
-  const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {
     setMounted(true);
-    const handleScroll = () => {
-      const scrolled = window.scrollY;
-      const maxScroll = document.body.scrollHeight - window.innerHeight;
-      scrollRef.current = maxScroll > 0 ? scrolled / maxScroll : 0;
-      setScrollProgress(scrollRef.current);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   if (!mounted) return null;
@@ -415,18 +377,17 @@ export default function WebGLBackground() {
       }}
     >
       <Canvas
-        camera={{ position: [0, 0.5, 5.5], fov: 45, near: 0.1, far: 100 }}
+        camera={{ position: [0, 2, 8], fov: 50, near: 0.1, far: 100 }}
         gl={{
           alpha: true,
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.2,
         }}
         dpr={[1, 1.5]}
         frameloop="always"
         style={{ background: "transparent" }}
       >
-        <Scene scrollProgress={scrollProgress} />
+        <Scene />
       </Canvas>
     </div>
   );
