@@ -55,9 +55,9 @@ function GlassIcosahedron({ scrollProgress }: { scrollProgress: number }) {
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
-      {/* Outer wireframe shell */}
+      {/* Outer wireframe shell — octahedron (diamond shape) */}
       <mesh ref={shellRef}>
-        <icosahedronGeometry args={[2.2, 0]} />
+        <octahedronGeometry args={[2.2, 0]} />
         <meshPhysicalMaterial
           color="#4488cc"
           metalness={0.95}
@@ -69,9 +69,9 @@ function GlassIcosahedron({ scrollProgress }: { scrollProgress: number }) {
         />
       </mesh>
 
-      {/* Inner glass core */}
+      {/* Inner glass core — octahedron, no subdivision = sharp diamond */}
       <mesh ref={innerRef}>
-        <icosahedronGeometry args={[2.0, 1]} />
+        <octahedronGeometry args={[2.0, 0]} />
         <meshPhysicalMaterial
           color="#5599dd"
           metalness={0.9}
