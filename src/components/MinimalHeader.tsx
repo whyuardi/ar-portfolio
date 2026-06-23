@@ -1,60 +1,55 @@
 "use client";
 
-import { GithubLogo, LinkedinLogo } from "@phosphor-icons/react";
-
-const navLinks = [
-  { label: "Projects", href: "#projects" },
-  { label: "Stack", href: "#stack" },
-  { label: "Contact", href: "#contact" },
-];
+import { useState, useEffect } from "react";
 
 export default function MinimalHeader() {
-  const scrollTo = (href: string) => {
-    const id = href.replace("#", "");
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
-  };
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 glass-header border-b border-border/50">
-      <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-        <a
-          href="#hero"
-          onClick={(e) => { e.preventDefault(); scrollTo("#hero"); }}
-          className="text-lg font-bold tracking-tight hover:text-accent transition-colors"
-        >
-          <span className="text-accent">/</span>ar
+    <header id="site-header" className={scrolled ? "scrolled" : ""}>
+      {/* Desktop */}
+      <div id="site-header__desktop" style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between" }}>
+        <div id="site-header__logo">
+          <a href="#home-hero" aria-label="Ardhiansyah">
+            <svg width="48" height="28" viewBox="0 0 48 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* AR monogram */}
+              <path d="M8 24L16 4L24 24H20.5L18.5 18H13.5L11.5 24H8ZM14.5 15H17.5L16 9L14.5 15Z" fill="#F8F7F2" />
+              <path d="M26 4H34C36.2 4 38 4.8 39.2 6.2C40.4 7.6 40.8 9.2 40.8 11C40.8 13.2 40 15 38.4 16.2L42 24H37.5L34.4 17H30V24H26V4ZM30 14H33.5C35 14 36.2 13 36.2 11C36.2 9 35 8 33.5 8H30V14Z" fill="#F8F7F2" />
+            </svg>
+          </a>
+        </div>
+        <a href="#home-pool" className="button is-transparent">
+          <span>Hire Me</span>
+          <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 13L13 1M13 1H3M13 1V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </a>
+      </div>
 
-        <nav className="flex items-center gap-6">
-          {navLinks.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              onClick={(e) => { e.preventDefault(); scrollTo(l.href); }}
-              className="text-sm text-text-secondary hover:text-accent transition-colors hidden sm:inline"
-            >
-              {l.label}
-            </a>
-          ))}
-
-          <a
-            href="https://github.com/whyuardi"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-7 h-7 rounded-lg bg-border flex items-center justify-center hover:bg-border-hover hover:text-accent transition-all"
-          >
-            <GithubLogo size={14} weight="duotone" />
+      {/* Mobile */}
+      <div id="site-header__mobile">
+        <div id="site-header__mobile-logo">
+          <a href="#home-hero" aria-label="Ardhiansyah">
+            <svg width="36" height="20" viewBox="0 0 48 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 24L16 4L24 24H20.5L18.5 18H13.5L11.5 24H8ZM14.5 15H17.5L16 9L14.5 15Z" fill="#F8F7F2" />
+              <path d="M26 4H34C36.2 4 38 4.8 39.2 6.2C40.4 7.6 40.8 9.2 40.8 11C40.8 13.2 40 15 38.4 16.2L42 24H37.5L34.4 17H30V24H26V4ZM30 14H33.5C35 14 36.2 13 36.2 11C36.2 9 35 8 33.5 8H30V14Z" fill="#F8F7F2" />
+            </svg>
           </a>
-          <a
-            href="https://linkedin.com/in/wahyuardi"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-7 h-7 rounded-lg bg-border flex items-center justify-center hover:bg-border-hover hover:text-accent transition-all"
-          >
-            <LinkedinLogo size={14} weight="duotone" />
-          </a>
-        </nav>
+        </div>
+        <a href="#home-pool" className="button is-transparent" id="site-header__mobile-cta">
+          <span>Hire Me</span>
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 13L13 1M13 1H3M13 1V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
       </div>
     </header>
   );

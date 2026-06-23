@@ -1,35 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function ScrollIndicator() {
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [visible, setVisible] = useState(true);
+  const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onScroll = () => {
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = totalHeight > 0 ? (window.scrollY / totalHeight) * 100 : 0;
-      setScrollProgress(progress);
-      setVisible(window.scrollY < 100);
+    const handleScroll = () => {
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = docHeight > 0 ? Math.min(window.scrollY / docHeight, 1) : 0;
+      if (barRef.current) {
+        barRef.current.style.height = `${progress * 100}%`;
+      }
     };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
-    <>
-      {/* Progress bar at top */}
-      <div className="progress-bar" style={{ width: `${scrollProgress}%` }} />
-
-      {/* Scroll mouse indicator */}
-      <div className={`scroll-indicator ${!visible ? "hidden" : ""}`}>
-        <span>Scroll</span>
-        <div className="scroll-mouse">
-          <div />
-        </div>
-      </div>
-    </>
+    <div id="scroll-indicator">
+      <div id="scroll-indicator__bar" ref={barRef} />
+    </div>
   );
 }

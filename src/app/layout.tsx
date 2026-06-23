@@ -1,47 +1,59 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff2",
-  variable: "--font-geist-sans",
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
   display: "swap",
+  weight: ["300", "400", "500"],
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff2",
-  variable: "--font-geist-mono",
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-cormorant",
   display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
-  title: "Ar | Portfolio",
-  description: "Web3 builder, automation engineer, and full-stack developer based in Yogyakarta.",
-  authors: [{ name: "Ar" }],
-  keywords: ["Ardhiansyah Wahyu Setyadi", "Mobile Developer", "IT Support", "Portfolio", "Web3"],
+  title: "Ardhiansyah — Creative Developer",
+  description:
+    "Mobile developer, Web3 builder, and full-stack engineer. Building digital experiences from Yogyakarta.",
+  authors: [{ name: "Ardhiansyah Wahyu Setyadi" }],
+  keywords: [
+    "Ardhiansyah",
+    "Mobile Developer",
+    "Web3",
+    "Portfolio",
+    "Full-stack",
+    "IT Support",
+  ],
   icons: {
     icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Ar | Web3 Builder",
-    description: "Building the decentralized future, one protocol at a time.",
-    images: [
-      {
-        url: "https://ar-portfolio-dusky.vercel.app/og.png",
-        width: 1200,
-        height: 630,
-      },
-    ],
+    title: "Ardhiansyah — Creative Developer",
+    description:
+      "Mobile developer, Web3 builder, and full-stack engineer. Building digital experiences from Yogyakarta.",
+    siteName: "Ardhiansyah",
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`}>
-      <body className="antialiased bg-bg text-text">
-        <div style={{ position: "relative", zIndex: 1 }}>
-          {children}
-        </div>
+    <html
+      lang="en"
+      className={`${inter.variable} ${cormorant.variable} dark`}
+      style={{ backgroundColor: "#08080A" }}
+    >
+      <body className="antialiased" style={{ backgroundColor: "#08080A", color: "#F8F7F2" }}>
+        {children}
       </body>
     </html>
   );
