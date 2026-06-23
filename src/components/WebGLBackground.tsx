@@ -10,9 +10,7 @@ import {
 import {
   EffectComposer,
   Bloom,
-  ChromaticAberration,
 } from "@react-three/postprocessing";
-import { BlendFunction } from "postprocessing";
 import * as THREE from "three";
 
 // ─── Simplex Noise GLSL (ashima/webgl-noise) — for vertex animation ───
@@ -381,10 +379,6 @@ function Scene({ scrollProgress }: { scrollProgress: number }) {
           luminanceSmoothing={0.85}
           intensity={1.2}
           mipmapBlur
-        />
-        <ChromaticAberration
-          blendFunction={BlendFunction.NORMAL}
-          offset={new THREE.Vector2(0.002, 0.002)}
         />
       </EffectComposer>
     </>
