@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import WebGLBackgroundWrapper from "@/components/WebGLBackgroundWrapper";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -40,7 +39,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`}>
       <body className="antialiased bg-bg text-text">
-        <WebGLBackgroundWrapper />
         <div style={{ position: "relative", zIndex: 1 }}>
           {children}
         </div>
